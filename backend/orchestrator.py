@@ -15,6 +15,7 @@ from .database import SessionLocal
 from .models import Run, Insight, KPIDefinition, AnalysisDefinition
 from .insight_engine import cluster_and_score_insights
 from .gemini_agents import GeminiAgentClient, GeminiAgentResult, resolve_gemini_mode
+from .reinforcement_loop import get_skill_selection_prior_scores, is_skill_paused
 
 # Ensure static artifacts directory exists
 ARTIFACTS_DIR = "static/artifacts"
@@ -92,11 +93,16 @@ async def run_orchestrator_task(run_id: str, run_type: str, target_id: str, conf
             await notify_log(run_id, f"Executing group analysis snapshot pattern for category: {target_id}...")
             # Retrieve all analyses belonging to this group
             definitions = db.query(AnalysisDefinition).filter(AnalysisDefinition.group_key == target_id).all()
-            await notify_log(run_id, f"Found {len(definitions)} skills in category '{target_id}'. Executing with snapshot pattern...")
+            prior_scores = get_skill_selection_prior_scores(db)
+            runnable_definitions = [d for d in definitions if not is_skill_paused(db, d.key)]
+            runnable_definitions.sort(key=lambda d: prior_scores.get(d.key, 0.0), reverse=True)
+            await notify_log(run_id, f"Found {len(definitions)} skills in category '{target_id}' ({len(runnable_definitions)} active). Executing with reward-prioritized snapshot pattern...")
             
             # Select 2-3 key skills to compute realistically, other fallback
-            for i, d in enumerate(definitions[:4]): # Limit to first 4 for performance / latency
-                await notify_log(run_id, f"Snapshot Task [{i+1}/{len(definitions[:4])}]: Running skill `{d.key}` on shared data cache...")
+            selected_definitions = runnable_definitions[:4] # Limit to first 4 for performance / latency
+            for i, d in enumerate(selected_definitions):
+                prior = prior_scores.get(d.key, 0.0)
+                await notify_log(run_id, f"Snapshot Task [{i+1}/{len(selected_definitions)}]: Running skill `{d.key}` on shared data cache (L3 prior={prior:.3f})...")
                 skills_insights = await execute_analysis_skill(run_id, d.key, config or {})
                 raw_insights.extend(skills_insights)
                 await asyncio.sleep(0.2)
