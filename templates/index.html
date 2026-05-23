@@ -842,10 +842,10 @@
                     await this.fetchResearchSchedules();
                     await this.fetchAdminStatus();
 
-                    // Periodically poll run status and insights every 5s
+                    // Periodically poll status data every 5s. Insights refresh when
+                    // runs/research complete so the visible feed stays in place.
                     setInterval(async () => {
                         await this.fetchRuns();
-                        await this.fetchInsights();
                         await this.fetchKPIs();
                         await this.fetchResearchJobs();
                         await this.fetchAdminStatus();

@@ -261,19 +261,19 @@ def rank_feed(
 ) -> List[Dict[str, Any]]:
     """
     Inline rank-scoring of insight candidates.
-    Applies Hard Floor filtering, Thompson Sampling, Active Threshold partitioning,
-    Diversity constraints, Exploration Slot blending, and logs Propensities.
+    Applies Hard Floor filtering and stable recency ordering, then logs propensities.
     """
     # 1. Hard validity floor filter
     valid_candidates = [c for c in candidates if passes_hard_floor(c)]
     if not valid_candidates:
         return []
 
-    # Get team-specific bandit state
+    # Get team-specific bandit state. Use posterior mean weights so the visible feed
+    # does not move between refreshes.
     bandit_state = get_or_create_bandit_state(db, team_id)
-    theta = sample_thompson_weights(bandit_state)
+    theta = np.array(bandit_state.weights, dtype=float)
 
-    # 2. Score candidates using sampled Thompson weights and partition
+    # 2. Score candidates using stable policy weights.
     scored_candidates = []
     for ins in valid_candidates:
         x = extract_features(ins)
@@ -281,33 +281,21 @@ def rank_feed(
         passes_active = passes_active_threshold(ins, db)
         scored_candidates.append((ins, score, x, passes_active))
 
-    # Separate guaranteed floor-passers from sub-threshold valid candidates
-    floor_passers = [item for item in scored_candidates if item[3]]
-    sub_threshold = [item for item in scored_candidates if not item[3]]
+    def created_at_for(item: Tuple[Any, float, np.ndarray, bool]) -> datetime.datetime:
+        insight = item[0]
+        raw_created_at = insight.get("created_at") if isinstance(insight, dict) else getattr(insight, "created_at", None)
+        if isinstance(raw_created_at, datetime.datetime):
+            return raw_created_at.replace(tzinfo=None)
+        if isinstance(raw_created_at, str):
+            try:
+                parsed = datetime.datetime.fromisoformat(raw_created_at.replace("Z", "+00:00"))
+                return parsed.replace(tzinfo=None)
+            except ValueError:
+                pass
+        return datetime.datetime.min
 
-    # Rank both partitions with diversity constraint
-    ranked_floor_passers = diversity_constrained_rank(floor_passers, beta=0.15)
-    ranked_sub_threshold = diversity_constrained_rank(sub_threshold, beta=0.15)
-
-    # Combined candidate feed
-    combined_feed = ranked_floor_passers + ranked_sub_threshold
-    if not combined_feed:
-        return []
-
-    # 3. Inject Exploration Budget (default 15%)
-    feed_size = len(combined_feed)
-    num_explore = int(round(feed_size * exploration_budget))
-    num_explore = max(0, min(num_explore, len(ranked_sub_threshold)))
-
-    exploit_slots = len(combined_feed) - num_explore
-    exploit_subset = combined_feed[:exploit_slots]
-    explore_pool = combined_feed[exploit_slots:]
-
-    # Shuffle exploration slots
-    if explore_pool:
-        np.random.shuffle(explore_pool)
-
-    final_feed_items = exploit_subset + explore_pool[:num_explore]
+    # 3. Keep the visible feed static: newest insight first, no exploration shuffle.
+    final_feed_items = sorted(scored_candidates, key=created_at_for, reverse=True)
 
     # 4. Compute propensities (softmax on scores)
     scores = np.array([item[1] for item in final_feed_items])
@@ -328,8 +316,8 @@ def rank_feed(
         ins_id = item.get("insight_id") if isinstance(item, dict) else getattr(item, "insight_id")
         propensity = float(propensities[rank])
         
-        # Check if it came from the explore partition
-        is_explore = (rank >= exploit_slots)
+        # Recency feed is deterministic, so no visible item is an exploration shuffle.
+        is_explore = False
 
         # Log to database
         surf_rec = SurfacingRecord(
