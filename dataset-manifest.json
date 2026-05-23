@@ -1,0 +1,21 @@
+{
+  "dataset_version": "spotify-v1",
+  "environment_id": "local-baked-env",
+  "generator_repo": "local-script",
+  "generator_sha": "local",
+  "seed": 42,
+  "date_range": {
+    "start": "2026-05-01",
+    "end": "2026-05-30"
+  },
+  "row_counts": {
+    "events": 6619263,
+    "users": 10000,
+    "tracks": 20000,
+    "playlist_tracks": 27357,
+    "albums": 2000,
+    "artists": 1000
+  },
+  "schema_hash": "d7a16100a3210270e1287946dc68ae24e07f0716ce7fe8dad8ccba4a6cd28de1",
+  "created_at": "2026-05-23T13:20:00Z"
+}

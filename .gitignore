@@ -1,0 +1,19 @@
+# Ignore local generated data
+data/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local environments
+venv/
+.venv/
+.venv-gemini/
+.env
+
+# Test and local DB artifacts
+.pytest_cache/
+watson.db
+
+# OS files
+.DS_Store

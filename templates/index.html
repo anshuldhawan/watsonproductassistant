@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watson // Automated Product Analyst</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js for interactive analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="bg-[#0b0f19] text-gray-100 min-h-screen flex flex-col" x-data="watsonApp()">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-[#1f293d] bg-[#0f1524] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-emerald-400 to-indigo-600 p-2.5 rounded-xl shadow-lg">
+                <i data-lucide="brain-circuit" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+                <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">WATSON</span>
+                <span class="text-xs text-gray-400 ml-1.5 uppercase tracking-widest font-mono">analyst v1.0</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <button @click="triggerContinuousMonitoring()" class="flex items-center space-x-2 bg-[#1e293b] hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium border border-[#334155] transition-all">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-emerald-400"></i>
+                <span>Run KPI Audit</span>
+            </button>
+            <div class="flex items-center space-x-2 text-sm bg-[#161c2e] border border-emerald-500/20 px-3 py-1.5 rounded-xl text-emerald-400 font-mono">
+                <span class="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span>BAKED ENVIRONMENT ACTIVE</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1">
+        <!-- Sidebar -->
+        <aside class="w-64 border-r border-[#1f293d] bg-[#0f1524] p-6 space-y-8 hidden md:block">
+            <div class="space-y-2">
+                <span class="text-xs font-mono font-semibold tracking-widest text-gray-500 uppercase">ANALYTICS SYSTEM</span>
+                <nav class="space-y-1">
+                    <button @click="activeTab = 'feed'" :class="activeTab === 'feed' ? 'bg-[#1a2336] text-emerald-400' : 'text-gray-400 hover:bg-[#121826] hover:text-gray-200'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        <span>Attention Feed</span>
+                        <span class="ml-auto bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold font-mono" x-text="insights.length">0</span>
+                    </button>
+                    <button @click="activeTab = 'catalog'" :class="activeTab === 'catalog' ? 'bg-[#1a2336] text-emerald-400' : 'text-gray-400 hover:bg-[#121826] hover:text-gray-200'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all">
+                        <i data-lucide="compass" class="w-5 h-5"></i>
+                        <span>Catalog Browser</span>
+                    </button>
+                    <button @click="activeTab = 'research'" :class="activeTab === 'research' ? 'bg-[#1a2336] text-emerald-400' : 'text-gray-400 hover:bg-[#121826] hover:text-gray-200'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all">
+                        <i data-lucide="search-check" class="w-5 h-5"></i>
+                        <span>Product Research</span>
+                        <span class="ml-auto bg-indigo-500/20 text-indigo-300 text-[10px] px-1.5 py-0.5 rounded-full font-bold font-mono" x-text="researchJobs.length">0</span>
+                    </button>
+                    <button @click="activeTab = 'kpis'" :class="activeTab === 'kpis' ? 'bg-[#1a2336] text-emerald-400' : 'text-gray-400 hover:bg-[#121826] hover:text-gray-200'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all">
+                        <i data-lucide="line-chart" class="w-5 h-5"></i>
+                        <span>KPI Monitor</span>
+                    </button>
+                    <button @click="activeTab = 'admin'; fetchAdminData();" :class="activeTab === 'admin' ? 'bg-[#1a2336] text-emerald-400' : 'text-gray-400 hover:bg-[#121826] hover:text-gray-200'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all">
+                        <i data-lucide="sliders" class="w-5 h-5"></i>
+                        <span>Admin Console</span>
+                        <span x-show="adminStatus.unreviewed_methodology_reviews_count > 0" class="ml-auto bg-amber-500 text-black text-[10px] px-1.5 py-0.5 rounded-full font-bold font-mono" x-text="adminStatus.unreviewed_methodology_reviews_count">0</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-mono font-semibold tracking-widest text-gray-500 uppercase">ACTIVE JOBS</span>
+                    <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded font-bold font-mono" x-text="runs.filter(r => r.status === 'running').length">0</span>
+                </div>
+                <div class="space-y-2">
+                    <template x-for="run in runs" :key="run.run_id">
+                        <div @click="openRunLogs(run)" class="p-3 rounded-xl bg-[#141b2d] border border-[#1f293d] hover:border-[#334155] cursor-pointer transition-all space-y-1.5">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-mono font-medium text-gray-300 truncate w-32" x-text="run.target_id"></span>
+                                <span :class="{
+                                    'text-amber-400': run.status === 'running',
+                                    'text-emerald-400': run.status === 'completed',
+                                    'text-rose-400': run.status === 'failed',
+                                    'text-gray-400': run.status === 'pending'
+                                }" class="capitalize font-bold text-[10px]" x-text="run.status"></span>
+                            </div>
+                            <!-- Small Progress bar for running -->
+                            <div x-show="run.status === 'running'" class="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                                <div class="bg-indigo-500 h-full animate-pulse" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div class="space-y-2 pt-3 border-t border-[#1f293d]">
+                    <template x-for="job in researchJobs.slice(0, 4)" :key="job.job_id">
+                        <div @click="openResearchJob(job)" class="p-3 rounded-xl bg-[#141b2d] border border-[#1f293d] hover:border-indigo-500/40 cursor-pointer transition-all space-y-1.5">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-mono font-medium text-gray-300 truncate w-32" x-text="job.playbook_id"></span>
+                                <span class="capitalize font-bold text-[10px] text-indigo-300" x-text="job.phase"></span>
+                            </div>
+                            <div x-show="job.status === 'running'" class="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                                <div class="bg-emerald-500 h-full animate-pulse" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="flex-1 p-6 md:p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto">
+            
+            <!-- Tab 1: Attention Feed -->
+            <div x-show="activeTab === 'feed'" class="space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f293d] pb-6">
+                    <div>
+                        <h1 class="text-2xl font-extrabold tracking-tight">Attention Insights</h1>
+                        <p class="text-sm text-gray-400 mt-1">Lighthouse priorities scored, ranked, and clustered by Watson's Insight Engine.</p>
+                    </div>
+                </div>
+
+                <!-- Insights List -->
+                <div class="space-y-6">
+                    <template x-if="insights.length === 0">
+                        <div class="border border-dashed border-[#1f293d] rounded-2xl p-12 text-center text-gray-400">
+                            <i data-lucide="inbox" class="w-12 h-12 mx-auto text-gray-600 mb-4"></i>
+                            <h3 class="text-lg font-bold">No insights generated yet</h3>
+                            <p class="text-sm mt-1 mb-4">Launch a new diagnostic skill run from the Catalog Browser to populate the priority feed.</p>
+                            <button @click="activeTab = 'catalog'" class="bg-[#10b981] hover:bg-[#059669] text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all">
+                                Open Catalog Browser
+                            </button>
+                        </div>
+                    </template>
+
+                    <template x-for="insight in insights" :key="insight.insight_id">
+                        <div class="bg-[#0f1524] border border-[#1f293d] hover:border-[#2e3c54] rounded-2xl p-6 transition-all space-y-6 relative overflow-hidden shadow-lg">
+                            <!-- High priority side badge -->
+                            <div :class="insight.attention_score >= 0.75 ? 'bg-rose-500' : 'bg-emerald-500'" class="absolute left-0 top-0 bottom-0 w-1.5"></div>
+                            
+                            <div class="flex flex-wrap items-start justify-between gap-4">
+                                <div class="space-y-1">
+                                    <div class="flex items-center space-x-2.5">
+                                        <span class="text-xs uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300" x-text="insight.group_key.replace('-', ' ')"></span>
+                                        <span class="text-xs uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300" x-text="insight.skill_key.replace('-', ' ')"></span>
+                                        <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                                            Score: <span x-text="(insight.attention_score * 100).toFixed(0)"></span>
+                                        </span>
+                                        <span x-show="insight.source === 'research'" class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300">
+                                            Evidence: <span x-text="((insight.evidence_strength || 0) * 100).toFixed(0)"></span>
+                                        </span>
+                                    </div>
+                                    <h2 class="text-xl font-bold tracking-tight text-white mt-2" x-text="insight.title"></h2>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <!-- Business Impact Badge -->
+                                    <div x-show="insight.business_impact_value" class="flex items-center space-x-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                                        <i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
+                                        <span>Est Impact: <span class="font-bold font-mono" x-text="formatCurrency(insight.business_impact_value)"></span></span>
+                                    </div>
+                                    <!-- Confidence Badge -->
+                                    <div x-show="insight.source !== 'research'" class="flex items-center space-x-1.5 bg-[#141b2d] border border-[#1f293d] text-gray-300 px-3 py-1.5 rounded-xl text-xs font-mono font-medium">
+                                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                        <span>Confidence: <span x-text="(insight.confidence * 100).toFixed(0)"></span>%</span>
+                                    </div>
+                                    <button x-show="insight.source !== 'research'" @click="triggerResearchWhy(insight.insight_id)" class="bg-sky-500/10 hover:bg-sky-500 text-sky-300 hover:text-white border border-sky-500/20 px-3 py-1.5 rounded-xl text-xs font-bold transition-all">
+                                        Research why
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p class="text-gray-300 text-sm leading-relaxed" x-text="insight.summary"></p>
+
+                            <!-- Inline Chart and Action list -->
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4 border-t border-[#1f293d]/50">
+                                <div class="lg:col-span-6 space-y-3">
+                                    <span class="text-xs font-bold font-mono text-gray-400 flex items-center space-x-2">
+                                        <i data-lucide="clipboard-list" class="w-4 h-4 text-emerald-400"></i>
+                                        <span>WATSON RECOMMENDED ACTIONS</span>
+                                    </span>
+                                    <ul class="space-y-2.5">
+                                        <template x-for="(action, i) in insight.recommended_actions" :key="i">
+                                            <li class="flex items-start space-x-2.5 text-xs text-gray-300">
+                                                <span class="text-emerald-400 font-bold mt-0.5">•</span>
+                                                <span x-text="action"></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                                <div class="lg:col-span-6 flex flex-col justify-center border border-[#1f293d] bg-[#0c101c] p-4 rounded-xl min-h-[160px] relative">
+                                    <span class="text-[10px] font-mono font-bold text-gray-500 absolute top-2 right-3 uppercase">computed asset</span>
+                                    <template x-if="insight.artifacts && insight.artifacts.length > 0">
+                                        <div class="space-y-2">
+                                            <img :src="'/static/artifacts/' + insight.artifacts[0]" alt="Insight Chart" class="max-h-48 rounded-lg mx-auto shadow border border-[#1f293d]">
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Footer Stats and Feedback -->
+                            <div class="flex items-center justify-between border-t border-[#1f293d] pt-4 text-xs text-gray-500">
+                                <div class="flex items-center space-x-4">
+                                    <span class="font-mono">Stat Test: <span class="text-gray-400" x-text="insight.stat_test"></span></span>
+                                    <span x-show="insight.segment" class="font-mono">Segment: <span class="text-gray-400" x-text="insight.segment"></span></span>
+                                    <button x-show="insight.report_id" @click="openResearchReport(insight.report_id)" class="text-sky-300 hover:text-sky-200 font-bold">Open report</button>
+                                    <span x-show="insight.citations && insight.citations.length" class="font-mono">Citations: <span class="text-gray-400" x-text="insight.citations.length"></span></span>
+                                </div>
+                                <div class="flex items-center space-x-2" x-show="insight.feedback_status === 'pending' || insight.feedback_status === 'useful' || insight.feedback_status === 'not_useful' || insight.feedback_status === 'acted_on' || insight.feedback_status === 'not-useful'">
+                                    <span class="mr-1.5 text-gray-400 font-semibold">Feed Utility:</span>
+                                    <select @change="handleFeedbackChange(insight.insight_id, $event.target.value)" class="bg-[#162135] text-gray-300 border border-[#1f293d] rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-emerald-500 transition-all cursor-pointer">
+                                        <option value="">-- Rate Insight --</option>
+                                        <option value="acted_on">👍 Acted on it</option>
+                                        <option value="useful">✅ Useful</option>
+                                        <option value="already_knew">💡 Already knew this</option>
+                                        <option value="not_actionable">⚠️ Not actionable</option>
+                                        <option value="not_important">💤 Not important</option>
+                                        <option value="wrong_disagree">❌ Wrong / I disagree</option>
+                                    </select>
+                                </div>
+                                <div class="text-emerald-400 font-mono font-bold flex items-center space-x-1" x-show="insight.feedback_status !== 'pending' && insight.feedback_status !== 'useful' && insight.feedback_status !== 'not_useful' && insight.feedback_status !== 'acted_on' && insight.feedback_status !== 'not-useful'">
+                                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                    <span class="uppercase text-[10px] tracking-wide" x-text="'FEEDBACK: ' + insight.feedback_status.replace('_', ' ').replace('-', ' ')"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Tab 2: Catalog Browser -->
+            <div x-show="activeTab === 'catalog'" class="space-y-6">
+                <div class="border-b border-[#1f293d] pb-6">
+                    <h1 class="text-2xl font-extrabold tracking-tight">Analysis Catalog</h1>
+                    <p class="text-sm text-gray-400 mt-1">Select and run diagnostic skills individually or as a parallel group run using cached base environments.</p>
+                </div>
+
+                <!-- Catalog Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <template x-for="category in catalog" :key="category.key">
+                        <div class="bg-[#0f1524] border border-[#1f293d] rounded-2xl p-6 shadow-lg space-y-6 flex flex-col justify-between">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="space-y-1">
+                                        <h3 class="text-lg font-bold text-white" x-text="category.name"></h3>
+                                        <span class="text-xs text-indigo-400 font-mono" x-text="category.agent_id"></span>
+                                    </div>
+                                    <button @click="triggerGroupRun(category.key)" class="bg-[#1e293b] hover:bg-indigo-600 hover:text-white text-indigo-400 border border-[#334155] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1">
+                                        <i data-lucide="play" class="w-3 h-3"></i>
+                                        <span>Run Group</span>
+                                    </button>
+                                </div>
+                                
+                                <div class="space-y-2 max-h-64 overflow-y-auto pr-2">
+                                    <template x-for="analysis in category.analyses" :key="analysis.key">
+                                        <div class="p-3 bg-[#161c2e]/60 border border-[#1f293d] rounded-xl flex items-start justify-between gap-4">
+                                            <div class="space-y-1 text-xs">
+                                                <span class="font-bold text-gray-200" x-text="analysis.name"></span>
+                                                <p class="text-gray-400 leading-relaxed text-[11px]" x-text="analysis.description"></p>
+                                            </div>
+                                            <button @click="triggerSingleRun(analysis.key)" class="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wide transition-all">
+                                                Run
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Tab 3: Product & User Research -->
+            <div x-show="activeTab === 'research'" class="space-y-6">
+                <div class="border-b border-[#1f293d] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-extrabold tracking-tight">Product & User Research</h1>
+                        <p class="text-sm text-gray-400 mt-1">Commission cited Deep Research playbooks with plan review before execution.</p>
+                    </div>
+                    <button @click="fetchResearchJobs()" class="bg-[#1e293b] hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium border border-[#334155] transition-all">
+                        Refresh Jobs
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <template x-for="playbook in researchPlaybooks" :key="playbook.playbook_id">
+                        <div class="bg-[#0f1524] border border-[#1f293d] rounded-2xl p-6 shadow-lg space-y-4">
+                            <div class="space-y-2">
+                                <span class="text-[10px] uppercase tracking-widest font-bold text-indigo-300 font-mono" x-text="playbook.model"></span>
+                                <h3 class="text-lg font-bold text-white" x-text="playbook.name"></h3>
+                                <p class="text-xs text-gray-400 leading-relaxed" x-text="playbook.description"></p>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-gray-500 font-mono">
+                                <span x-text="'Ceiling: $' + playbook.cost_ceiling_usd"></span>
+                                <span x-text="playbook.default_cadence || 'on demand'"></span>
+                            </div>
+                            <textarea x-model="researchFocus[playbook.playbook_id]" rows="4" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200 focus:outline-none focus:border-emerald-500" placeholder="Focus this research on a product area, market, segment, or question..."></textarea>
+                            <button @click="requestResearchPlan(playbook.playbook_id)" class="w-full bg-emerald-500/10 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/20 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all">
+                                Request Plan
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="bg-[#0f1524] border border-[#1f293d] rounded-2xl p-6 shadow-lg space-y-4">
+                    <h3 class="text-lg font-bold text-white">Research Jobs</h3>
+                    <div class="space-y-3">
+                        <template x-if="researchJobs.length === 0">
+                            <div class="text-sm text-gray-500 border border-dashed border-[#1f293d] rounded-xl p-6 text-center">No research jobs yet.</div>
+                        </template>
+                        <template x-for="job in researchJobs" :key="job.job_id">
+                            <div class="p-4 bg-[#141b2d] border border-[#1f293d] rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                <div class="space-y-1">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-xs font-bold text-white" x-text="job.playbook_id"></span>
+                                        <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300" x-text="job.phase"></span>
+                                        <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-800 text-gray-300" x-text="job.status"></span>
+                                    </div>
+                                    <p class="text-xs text-gray-400 line-clamp-2" x-text="job.focus"></p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button @click="openResearchJob(job)" class="px-3 py-1.5 rounded-lg bg-[#1e293b] text-gray-300 hover:text-white text-xs font-bold border border-[#334155]">Open</button>
+                                    <button x-show="job.phase === 'awaiting_approval'" @click="approveResearchJob(job.job_id)" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-300 hover:text-white text-xs font-bold border border-emerald-500/20">Approve</button>
+                                    <button x-show="job.report_text" @click="openResearchReport(job.job_id)" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500 text-sky-300 hover:text-white text-xs font-bold border border-sky-500/20">Report</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-[#0f1524] border border-[#1f293d] rounded-2xl p-6 shadow-lg space-y-4">
+                        <h3 class="text-lg font-bold text-white">Internal Corpora</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input x-model="newCorpus.name" class="bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200" placeholder="Corpus name">
+                            <input x-model="newCorpus.source_type" class="bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200" placeholder="support_tickets, reviews, surveys">
+                        </div>
+                        <input x-model="newCorpus.file_search_store" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200" placeholder="Optional File Search store name">
+                        <textarea x-model="newCorpus.sample_text" rows="3" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200" placeholder="Sample text for PII redaction preview"></textarea>
+                        <button @click="createResearchCorpus()" class="bg-indigo-500/10 hover:bg-indigo-500 text-indigo-300 hover:text-white border border-indigo-500/20 px-4 py-2 rounded-xl text-xs font-bold">Register Corpus</button>
+                        <div class="space-y-2">
+                            <template x-for="corpus in researchCorpora" :key="corpus.corpus_id">
+                                <div class="p-3 bg-[#141b2d] border border-[#1f293d] rounded-xl text-xs">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-gray-200" x-text="corpus.name"></span>
+                                        <span class="text-emerald-300 font-mono" x-text="corpus.redaction_status"></span>
+                                    </div>
+                                    <p class="text-gray-500 mt-1" x-text="corpus.source_type + (corpus.file_search_store ? ' / ' + corpus.file_search_store : '')"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="bg-[#0f1524] border border-[#1f293d] rounded-2xl p-6 shadow-lg space-y-4">
+                        <h3 class="text-lg font-bold text-white">Scheduled Monitoring</h3>
+                        <select x-model="newSchedule.playbook_id" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200">
+                            <option value="">Choose playbook</option>
+                            <template x-for="playbook in researchPlaybooks" :key="playbook.playbook_id">
+                                <option :value="playbook.playbook_id" x-text="playbook.name"></option>
+                            </template>
+                        </select>
+                        <select x-model="newSchedule.cadence" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200">
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                        <textarea x-model="newSchedule.focus" rows="3" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200" placeholder="Monitoring focus"></textarea>
+                        <button @click="createResearchSchedule()" class="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/20 px-4 py-2 rounded-xl text-xs font-bold">Create Schedule</button>
+                        <div class="space-y-2">
+                            <template x-for="schedule in researchSchedules" :key="schedule.schedule_id">
+                                <div class="p-3 bg-[#141b2d] border border-[#1f293d] rounded-xl text-xs flex items-center justify-between gap-3">
+                                    <div>
+                                        <span class="font-bold text-gray-200" x-text="schedule.playbook_id"></span>
+                                        <p class="text-gray-500 mt-1" x-text="schedule.cadence + ' / ' + schedule.focus"></p>
+                                    </div>
+                                    <button @click="runResearchSchedule(schedule.schedule_id)" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500 text-sky-300 hover:text-white text-xs font-bold border border-sky-500/20">Run Now</button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: KPI Monitor -->
+            <div x-show="activeTab === 'kpis'" class="space-y-6">
+                <div class="border-b border-[#1f293d] pb-6">
+                    <h1 class="text-2xl font-extrabold tracking-tight">KPI Monitor</h1>
+                    <p class="text-sm text-gray-400 mt-1">Real-time status indicators and trendlines of the core Spotify platform metrics.</p>
+                </div>
+
+                <!-- KPI Cards Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <template x-for="kpi in kpis" :key="kpi.metric">
+                        <div class="bg-[#0f1524] border border-[#1f293d] hover:border-[#2e3c54] rounded-2xl p-6 shadow-lg space-y-4 relative overflow-hidden transition-all">
+                            <!-- Status color ring -->
+                            <div :class="{
+                                'bg-emerald-500': kpi.status === 'green',
+                                'bg-amber-500': kpi.status === 'warning',
+                                'bg-rose-500': kpi.status === 'critical'
+                            }" class="absolute right-0 top-0 bottom-0 w-1"></div>
+
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs uppercase font-bold text-gray-500 tracking-wider" x-text="kpi.metric.replace('_', ' ')"></span>
+                                <span :class="{
+                                    'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20': kpi.status === 'green',
+                                    'bg-amber-500/10 text-amber-400 border border-amber-500/20': kpi.status === 'warning',
+                                    'bg-rose-500/10 text-rose-400 border border-rose-500/20': kpi.status === 'critical'
+                                }" class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full" x-text="kpi.status"></span>
+                            </div>
+
+                            <div class="space-y-1">
+                                <h3 class="text-sm font-bold text-gray-200" x-text="kpi.name"></h3>
+                                <p class="text-xs text-gray-400" x-text="kpi.description"></p>
+                            </div>
+
+                            <div class="flex items-baseline justify-between pt-2">
+                                <div class="space-y-0.5">
+                                    <span class="text-3xl font-extrabold tracking-tight font-mono text-white" x-text="formatKPIValue(kpi.current_value, kpi.metric)"></span>
+                                    <div class="flex items-center space-x-1.5 text-xs text-gray-400">
+                                        <span>Prior: <span class="font-mono text-gray-300" x-text="formatKPIValue(kpi.previous_value, kpi.metric)"></span></span>
+                                    </div>
+                                </div>
+                                <div class="text-right text-xs">
+                                    <span :class="getKPIPercentChange(kpi) >= 0 ? 'text-emerald-400' : 'text-rose-400'" class="font-bold font-mono">
+                                        <span x-text="getKPIPercentChange(kpi) >= 0 ? '+' : ''"></span><span x-text="getKPIPercentChange(kpi).toFixed(1)"></span>%
+                                    </span>
+                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider font-mono">deviation</p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Tab 4: Admin Console -->
+            <div x-show="activeTab === 'admin'" class="space-y-8" x-cloak>
+                <div class="border-b border-[#1f293d] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-extrabold tracking-tight">Admin & Policy Console</h1>
+                        <p class="text-sm text-gray-400 mt-1">Audit the active Thompson Sampling policy, resolve methodology review queues, and calibrate skill thresholds.</p>
+                    </div>
+                    <div>
+                        <button @click="triggerPolicyRefit()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 transition-all">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            <span>Trigger Policy Refit</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Overview -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-[#0f1524] border border-[#1f293d] p-5 rounded-2xl">
+                        <span class="text-xs uppercase font-bold text-gray-500 font-mono">Policy Version</span>
+                        <h3 class="text-lg font-bold font-mono text-emerald-400 mt-1 truncate" x-text="adminStatus.active_policy_version"></h3>
+                    </div>
+                    <div class="bg-[#0f1524] border border-[#1f293d] p-5 rounded-2xl">
+                        <span class="text-xs uppercase font-bold text-gray-500 font-mono">OPE Score</span>
+                        <h3 class="text-xl font-bold font-mono text-indigo-400 mt-1" x-text="adminStatus.ope_score ? adminStatus.ope_score.toFixed(4) : '1.0000'"></h3>
+                    </div>
+                    <div class="bg-[#0f1524] border border-[#1f293d] p-5 rounded-2xl">
+                        <span class="text-xs uppercase font-bold text-gray-500 font-mono">Valence Parity Index</span>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <h3 class="text-xl font-bold font-mono text-white" x-text="adminStatus.valence_parity_score ? adminStatus.valence_parity_score.toFixed(2) : '1.00'"></h3>
+                            <span :class="adminStatus.valence_parity_score >= 0.75 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'" class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded font-mono" x-text="adminStatus.valence_parity_score >= 0.75 ? 'Healthy' : 'Skewed'"></span>
+                        </div>
+                    </div>
+                    <div class="bg-[#0f1524] border border-[#1f293d] p-5 rounded-2xl">
+                        <span class="text-xs uppercase font-bold text-gray-500 font-mono">Logged Interactions</span>
+                        <h3 class="text-xl font-bold font-mono text-gray-300 mt-1" x-text="adminStatus.feedback_count + ' explicit ratings'"></h3>
+                    </div>
+                </div>
+
+                <!-- Main Layout splits -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- Column 1: Active Parameter Weights -->
+                    <div class="lg:col-span-6 bg-[#0f1524] border border-[#1f293d] p-6 rounded-2xl space-y-4">
+                        <h3 class="text-lg font-bold flex items-center space-x-2 text-white">
+                            <i data-lucide="activity" class="text-indigo-400 w-5 h-5"></i>
+                            <span>Thompson Weights Posterior Mean</span>
+                        </h3>
+                        <p class="text-xs text-gray-400">Current mean values of the active contextual bandit weights vector.</p>
+
+                        <div class="space-y-3.5 pt-2">
+                            <template x-if="adminStatus.weights">
+                                <div class="space-y-3.5">
+                                    <template x-for="(w, idx) in adminStatus.weights" :key="idx">
+                                        <div class="space-y-1">
+                                            <div class="flex items-center justify-between text-xs font-mono">
+                                                <span class="text-gray-300" x-text="adminStatus.feature_names[idx].replace('_', ' ').toUpperCase()"></span>
+                                                <span class="text-emerald-400 font-bold" x-text="w.toFixed(4)"></span>
+                                            </div>
+                                            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                                                <div :style="'width: ' + Math.min(100, Math.max(0, (w + 1.0) * 50)) + '%'" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full"></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Methodology Review Queue -->
+                    <div class="lg:col-span-6 bg-[#0f1524] border border-[#1f293d] p-6 rounded-2xl space-y-4">
+                        <h3 class="text-lg font-bold flex items-center space-x-2 text-white">
+                            <i data-lucide="alert-triangle" class="text-amber-500 w-5 h-5"></i>
+                            <span>Methodology Review Queue (Wrong/Disagree)</span>
+                        </h3>
+                        <p class="text-xs text-gray-400">Disagreements and methodology reports submitted by product teams.</p>
+
+                        <div class="space-y-3 max-h-[420px] overflow-y-auto pr-2">
+                            <template x-if="reviews.length === 0">
+                                <div class="p-6 border border-dashed border-[#1f293d] rounded-xl text-center text-gray-500 text-sm">
+                                    Queue is empty. No methodology disputes reported.
+                                </div>
+                            </template>
+
+                            <template x-for="rev in reviews" :key="rev.id">
+                                <div class="p-4 bg-[#141b2d] border border-[#1f293d] rounded-xl space-y-3">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <span class="text-[10px] font-mono font-bold uppercase text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded" x-text="rev.skill_key"></span>
+                                            <h4 class="text-sm font-bold mt-1 text-white" x-text="rev.insight_title"></h4>
+                                        </div>
+                                        <span :class="rev.is_reviewed ? 'text-emerald-400' : 'text-amber-400'" class="text-[10px] uppercase font-bold font-mono" x-text="rev.is_reviewed ? 'Reviewed' : 'Pending'"></span>
+                                    </div>
+                                    <p class="text-xs text-gray-300 bg-black/30 p-2.5 rounded-lg border border-[#1f293d] italic" x-text="'Feedback: &quot;' + rev.user_comment + '&quot;'"></p>
+                                    <div class="flex items-center justify-end space-x-2" x-show="!rev.is_reviewed">
+                                        <button @click="resolveReview(rev.id, 'dismiss')" class="px-2.5 py-1 text-[10px] font-bold bg-[#1e293b] text-gray-300 hover:text-white rounded border border-[#334155] transition-all">
+                                            Dismiss Dispute
+                                        </button>
+                                        <button @click="resolveReview(rev.id, 'correct')" class="px-2.5 py-1 text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white rounded border border-emerald-500/20 transition-all">
+                                            Correct Methodology
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skill L2 Thresholds Control Panel -->
+                <div class="bg-[#0f1524] border border-[#1f293d] p-6 rounded-2xl space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f293d]/50 pb-4">
+                        <div>
+                            <h3 class="text-lg font-bold flex items-center space-x-2 text-white">
+                                <i data-lucide="sliders" class="text-emerald-400 w-5 h-5"></i>
+                                <span>L2 Skill Threshold Controls</span>
+                            </h3>
+                            <p class="text-xs text-gray-400">Manage individual active skill thresholds. These boundaries control which findings are deemed noteworthy.</p>
+                        </div>
+                        <div>
+                            <button @click="autoAdjustThresholds()" class="bg-[#1e293b] hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold border border-[#334155] transition-all flex items-center space-x-1">
+                                <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                                <span>Trigger Auto-Adjust</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+                        <template x-for="skill in thresholds" :key="skill.skill_key">
+                            <div class="p-4 bg-[#141b2d] border border-[#1f293d] rounded-xl space-y-4">
+                                <div class="flex justify-between items-start">
+                                    <span class="text-xs font-bold text-gray-200 uppercase font-mono tracking-tight truncate w-full" x-text="skill.skill_key.replaceAll('-', ' ')"></span>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <!-- Confidence Input -->
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between text-[11px] text-gray-400 font-mono">
+                                            <span>Confidence Gate</span>
+                                            <span class="font-bold text-gray-300" x-text="(parseFloat(skill.current_confidence_threshold) * 100).toFixed(0) + '%'"></span>
+                                        </div>
+                                        <input type="range" min="0.70" max="0.95" step="0.01" x-model="skill.current_confidence_threshold" @change="saveManualThreshold(skill)" class="w-full accent-emerald-400">
+                                    </div>
+
+                                    <!-- Magnitude Input -->
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between text-[11px] text-gray-400 font-mono">
+                                            <span>Magnitude Gate</span>
+                                            <span class="font-bold text-gray-300" x-text="(parseFloat(skill.current_magnitude_threshold) * 100).toFixed(0) + '%'"></span>
+                                        </div>
+                                        <input type="range" min="0.05" max="0.40" step="0.01" x-model="skill.current_magnitude_threshold" @change="saveManualThreshold(skill)" class="w-full accent-indigo-400">
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Research Job Modal -->
+    <div x-show="showResearchModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-transition>
+        <div class="bg-[#0f1423] border border-[#232d43] w-full max-w-4xl rounded-2xl flex flex-col shadow-2xl overflow-hidden max-h-[88vh]">
+            <div class="px-6 py-4 border-b border-[#232d43] flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold text-white" x-text="selectedResearchJob ? selectedResearchJob.playbook_id : 'Research Job'"></h3>
+                    <p class="text-xs text-gray-400" x-text="selectedResearchJob ? selectedResearchJob.phase + ' / ' + selectedResearchJob.status : ''"></p>
+                </div>
+                <button @click="closeResearchModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-5">
+                <div class="space-y-2">
+                    <span class="text-xs uppercase font-bold text-gray-500 font-mono">Focus</span>
+                    <p class="text-sm text-gray-300" x-text="selectedResearchJob?.focus"></p>
+                </div>
+                <div class="space-y-2">
+                    <span class="text-xs uppercase font-bold text-gray-500 font-mono">Plan</span>
+                    <pre class="whitespace-pre-wrap text-sm text-gray-200 bg-black/30 border border-[#1f293d] rounded-xl p-4" x-text="selectedResearchJob?.plan_text || 'Plan is still being generated.'"></pre>
+                </div>
+                <div x-show="selectedResearchJob?.phase === 'awaiting_approval'" class="space-y-3">
+                    <textarea x-model="researchRefinement" rows="3" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200 focus:outline-none focus:border-emerald-500" placeholder="Optional refinement before approving..."></textarea>
+                    <div class="flex justify-end space-x-2">
+                        <button @click="refineResearchJob()" class="px-4 py-2 rounded-xl bg-[#1e293b] text-gray-300 hover:text-white text-xs font-bold border border-[#334155]">Refine Plan</button>
+                        <button @click="approveResearchJob(selectedResearchJob.job_id)" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold">Approve And Run</button>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <span class="text-xs uppercase font-bold text-gray-500 font-mono">Progress</span>
+                    <div class="bg-black/30 border border-[#1f293d] rounded-xl p-4 max-h-48 overflow-y-auto font-mono text-xs text-emerald-300 space-y-1">
+                        <template x-for="event in researchEvents" :key="event.id">
+                            <div x-text="'[' + event.type + '] ' + event.message"></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Research Report Modal -->
+    <div x-show="showReportModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-transition>
+        <div class="bg-[#0f1423] border border-[#232d43] w-full max-w-5xl rounded-2xl flex flex-col shadow-2xl overflow-hidden max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-[#232d43] flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Research Report</h3>
+                <button @click="showReportModal = false" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-5">
+                <pre class="whitespace-pre-wrap text-sm text-gray-200 bg-black/30 border border-[#1f293d] rounded-xl p-5" x-text="selectedReport?.report_text || 'Report is not available yet.'"></pre>
+                <div class="space-y-2">
+                    <span class="text-xs uppercase font-bold text-gray-500 font-mono">Citations</span>
+                    <template x-for="(citation, i) in selectedReport?.citations || []" :key="i">
+                        <a :href="citation.url" target="_blank" class="block text-sm text-sky-300 hover:text-sky-200 truncate" x-text="citation.title || citation.url"></a>
+                    </template>
+                </div>
+                <div class="space-y-3 pt-4 border-t border-[#1f293d]">
+                    <textarea x-model="researchFollowupQuestion" rows="2" class="w-full bg-[#0b0f19] border border-[#1f293d] rounded-xl p-3 text-xs text-gray-200 focus:outline-none focus:border-emerald-500" placeholder="Ask a follow-up question about this report..."></textarea>
+                    <button @click="askResearchFollowup()" class="bg-sky-500/10 hover:bg-sky-500 text-sky-300 hover:text-white border border-sky-500/20 px-4 py-2 rounded-xl text-xs font-bold">Ask Follow-up</button>
+                    <template x-for="(item, i) in researchFollowups" :key="i">
+                        <div class="text-sm text-gray-300 bg-[#141b2d] border border-[#1f293d] rounded-xl p-3" x-text="item.response"></div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Run Log Modal Viewer -->
+    <div x-show="showLogModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-transition>
+        <div class="bg-[#0f1423] border border-[#232d43] w-full max-w-3xl rounded-2xl flex flex-col shadow-2xl overflow-hidden max-h-[85vh]">
+            <div class="px-6 py-4 border-b border-[#232d43] flex items-center justify-between">
+                <div class="flex items-center space-x-2.5">
+                    <i data-lucide="terminal" class="w-5 h-5 text-indigo-400"></i>
+                    <h3 class="text-lg font-bold text-white">Watson Live Sandbox Execution Terminal</h3>
+                </div>
+                <button @click="closeLogModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 flex-1 bg-black/50 overflow-y-auto font-mono text-xs text-emerald-400 space-y-2 h-96" id="terminal-logs-box">
+                <template x-for="(line, index) in logLines" :key="index">
+                    <div :class="{
+                        'text-indigo-400': line.includes('[SQL]'),
+                        'text-amber-400': line.includes('[ANOMALY]') || line.includes('[warning]') || line.includes('WARNING'),
+                        'text-sky-400': line.includes('[KPI]'),
+                        'text-gray-400': line.includes('[System]')
+                    }" class="leading-relaxed whitespace-pre-wrap" x-text="line"></div>
+                </template>
+                <div class="h-2" id="logs-end"></div>
+            </div>
+            
+            <div class="px-6 py-4 bg-[#0d101c] border-t border-[#232d43] flex items-center justify-between text-xs text-gray-500">
+                <span class="font-mono">Task ID: <span class="text-gray-400 font-bold" x-text="selectedRun?.run_id"></span></span>
+                <span class="flex items-center space-x-1.5 font-mono text-emerald-400 animate-pulse" x-show="selectedRun?.status === 'running'">
+                    <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
+                    <span>Streaming Sandboxed Agent Logs...</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- API and Page script -->
+    <script>
+        function watsonApp() {
+            return {
+                activeTab: 'feed',
+                catalog: [],
+                runs: [],
+                insights: [],
+                kpis: [],
+                researchPlaybooks: [],
+                researchJobs: [],
+                researchCorpora: [],
+                researchSchedules: [],
+                researchFocus: {},
+                newCorpus: { name: '', source_type: '', file_search_store: '', sample_text: '' },
+                newSchedule: { playbook_id: '', cadence: 'weekly', focus: '', enabled: true },
+                selectedResearchJob: null,
+                selectedReport: null,
+                researchEvents: [],
+                researchRefinement: '',
+                researchFollowupQuestion: '',
+                researchFollowups: [],
+                showResearchModal: false,
+                showReportModal: false,
+                researchEventSource: null,
+                showLogModal: false,
+                selectedRun: null,
+                logLines: [],
+                eventSource: null,
+
+                async init() {
+                    // Lucide render
+                    setTimeout(() => lucide.createIcons(), 100);
+                    
+                    // Fetch init data
+                    await this.fetchCatalog();
+                    await this.fetchRuns();
+                    await this.fetchInsights();
+                    await this.fetchKPIs();
+                    await this.fetchResearchPlaybooks();
+                    await this.fetchResearchJobs();
+                    await this.fetchResearchCorpora();
+                    await this.fetchResearchSchedules();
+
+                    // Periodically poll run status and insights every 5s
+                    setInterval(async () => {
+                        await this.fetchRuns();
+                        await this.fetchInsights();
+                        await this.fetchKPIs();
+                        await this.fetchResearchJobs();
+                    }, 5000);
+                },
+
+                async fetchCatalog() {
+                    const res = await fetch("/api/catalog");
+                    this.catalog = await res.json();
+                },
+
+                async fetchRuns() {
+                    const res = await fetch("/api/runs");
+                    this.runs = await res.json();
+                },
+
+                async fetchInsights() {
+                    const res = await fetch("/api/insights");
+                    this.insights = await res.json();
+                },
+
+                async fetchKPIs() {
+                    const res = await fetch("/api/kpis");
+                    this.kpis = await res.json();
+                },
+
+                async fetchResearchPlaybooks() {
+                    const res = await fetch("/api/research/playbooks");
+                    this.researchPlaybooks = await res.json();
+                },
+
+                async fetchResearchJobs() {
+                    const res = await fetch("/api/research/jobs");
+                    this.researchJobs = await res.json();
+                    if (this.selectedResearchJob) {
+                        const updated = this.researchJobs.find(j => j.job_id === this.selectedResearchJob.job_id);
+                        if (updated) this.selectedResearchJob = updated;
+                    }
+                },
+
+                async fetchResearchCorpora() {
+                    const res = await fetch("/api/research/corpora");
+                    this.researchCorpora = await res.json();
+                },
+
+                async fetchResearchSchedules() {
+                    const res = await fetch("/api/research/schedules");
+                    this.researchSchedules = await res.json();
+                },
+
+                async createResearchCorpus() {
+                    if (!this.newCorpus.name || !this.newCorpus.source_type) return;
+                    await fetch("/api/research/corpora", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(this.newCorpus)
+                    });
+                    this.newCorpus = { name: '', source_type: '', file_search_store: '', sample_text: '' };
+                    await this.fetchResearchCorpora();
+                },
+
+                async createResearchSchedule() {
+                    if (!this.newSchedule.playbook_id || !this.newSchedule.focus) return;
+                    await fetch("/api/research/schedules", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(this.newSchedule)
+                    });
+                    this.newSchedule = { playbook_id: '', cadence: 'weekly', focus: '', enabled: true };
+                    await this.fetchResearchSchedules();
+                },
+
+                async runResearchSchedule(scheduleId) {
+                    const res = await fetch(`/api/research/schedules/${scheduleId}/run`, { method: "POST" });
+                    const job = await res.json();
+                    await this.fetchResearchJobs();
+                    this.openResearchJob(job);
+                },
+
+                async triggerSingleRun(key) {
+                    const res = await fetch("/api/runs", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            type: "single",
+                            target_id: key,
+                            config: { date_range: "30d" }
+                        })
+                    });
+                    const run = await res.json();
+                    await this.fetchRuns();
+                    this.openRunLogs(run);
+                },
+
+                async triggerGroupRun(key) {
+                    const res = await fetch("/api/runs", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            type: "group",
+                            target_id: key,
+                            config: { date_range: "30d" }
+                        })
+                    });
+                    const run = await res.json();
+                    await this.fetchRuns();
+                    this.openRunLogs(run);
+                },
+
+                async triggerContinuousMonitoring() {
+                    const res = await fetch("/api/runs", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            type: "monitoring",
+                            target_id: "anomaly-detection-kpi"
+                        })
+                    });
+                    const run = await res.json();
+                    await this.fetchRuns();
+                    this.openRunLogs(run);
+                },
+
+                async submitFeedback(insightId, status) {
+                    await fetch(`/api/insights/${insightId}/feedback`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ feedback_status: status })
+                    });
+                    await this.fetchInsights();
+                },
+
+                async handleFeedbackChange(insightId, status) {
+                    if (!status) return;
+                    await this.submitFeedback(insightId, status);
+                },
+
+                async requestResearchPlan(playbookId) {
+                    const focus = this.researchFocus[playbookId] || "Current product and user research priorities";
+                    const res = await fetch("/api/research/jobs", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ playbook_id: playbookId, focus })
+                    });
+                    const job = await res.json();
+                    await this.fetchResearchJobs();
+                    this.openResearchJob(job);
+                },
+
+                openResearchJob(job) {
+                    this.selectedResearchJob = job;
+                    this.researchRefinement = '';
+                    this.researchEvents = job.event_log || [];
+                    this.showResearchModal = true;
+                    this.openResearchStream(job.job_id);
+                },
+
+                openResearchStream(jobId) {
+                    if (this.researchEventSource) {
+                        this.researchEventSource.close();
+                    }
+                    this.researchEventSource = new EventSource(`/api/research/jobs/${jobId}/stream`);
+                    this.researchEventSource.onmessage = (event) => {
+                        this.consumeResearchEvent(event);
+                    };
+                    ["status", "plan", "report", "followup", "completed", "failed"].forEach(type => {
+                        this.researchEventSource.addEventListener(type, event => this.consumeResearchEvent(event));
+                    });
+                },
+
+                consumeResearchEvent(event) {
+                    if (!event.data || event.data === "{}") return;
+                    const payload = JSON.parse(event.data);
+                    this.researchEvents.push(payload);
+                    if (payload.type === "plan" || payload.type === "completed" || payload.type === "failed") {
+                        this.fetchResearchJobs();
+                        this.fetchInsights();
+                    }
+                    if (payload.type === "completed" && this.researchEventSource) {
+                        this.researchEventSource.close();
+                    }
+                },
+
+                closeResearchModal() {
+                    this.showResearchModal = false;
+                    if (this.researchEventSource) {
+                        this.researchEventSource.close();
+                    }
+                },
+
+                async refineResearchJob() {
+                    if (!this.selectedResearchJob || !this.researchRefinement.trim()) return;
+                    await fetch(`/api/research/jobs/${this.selectedResearchJob.job_id}/refine`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ refinement: this.researchRefinement })
+                    });
+                    await this.fetchResearchJobs();
+                },
+
+                async approveResearchJob(jobId) {
+                    await fetch(`/api/research/jobs/${jobId}/approve`, { method: "POST" });
+                    await this.fetchResearchJobs();
+                    const job = this.researchJobs.find(j => j.job_id === jobId);
+                    if (job) this.openResearchJob(job);
+                },
+
+                async openResearchReport(jobId) {
+                    const res = await fetch(`/api/research/jobs/${jobId}/report`);
+                    this.selectedReport = await res.json();
+                    this.researchFollowups = [];
+                    this.researchFollowupQuestion = '';
+                    this.showReportModal = true;
+                },
+
+                async askResearchFollowup() {
+                    if (!this.selectedReport || !this.researchFollowupQuestion.trim()) return;
+                    const res = await fetch(`/api/research/jobs/${this.selectedReport.job_id}/followup`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ question: this.researchFollowupQuestion })
+                    });
+                    const payload = await res.json();
+                    this.researchFollowups.push(payload);
+                    this.researchFollowupQuestion = '';
+                },
+
+                async triggerResearchWhy(insightId) {
+                    const res = await fetch(`/api/insights/${insightId}/research-why`, { method: "POST" });
+                    const job = await res.json();
+                    await this.fetchResearchJobs();
+                    this.activeTab = 'research';
+                    this.openResearchJob(job);
+                },
+
+                openRunLogs(run) {
+                    this.selectedRun = run;
+                    this.showLogModal = true;
+                    this.logLines = [];
+                    
+                    if (this.eventSource) {
+                        this.eventSource.close();
+                    }
+
+                    // Pre-fill existing logs
+                    if (run.logs) {
+                        this.logLines = run.logs.trim().split("\n");
+                    }
+
+                    // Establish SSE stream if running
+                    if (run.status === "running") {
+                        this.eventSource = new EventSource(`/api/runs/${run.run_id}/stream`);
+                        this.eventSource.onmessage = (event) => {
+                            this.logLines.push(event.data);
+                            // Scroll to bottom
+                            setTimeout(() => {
+                                const box = document.getElementById("terminal-logs-box");
+                                if (box) box.scrollTop = box.scrollHeight;
+                            }, 50);
+
+                            if (event.data.includes("RUN_COMPLETED") || event.data.includes("RUN_FAILED")) {
+                                this.eventSource.close();
+                                this.fetchRuns();
+                                this.fetchInsights();
+                                this.fetchKPIs();
+                            }
+                        };
+                    }
+                },
+
+                closeLogModal() {
+                    this.showLogModal = false;
+                    if (this.eventSource) {
+                        this.eventSource.close();
+                    }
+                },
+
+                // UI Helpers
+                formatCurrency(val) {
+                    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+                },
+
+                formatKPIValue(val, metric) {
+                    if (!val) return "—";
+                    if (metric === "dau") return val.toLocaleString();
+                    if (metric === "new_user_activation" || metric === "d1_retention" || metric === "d7_retention" || metric === "skip_rate") {
+                        return (val * 100).toFixed(1) + "%";
+                    }
+                    if (metric === "arpdau") return "$" + val.toFixed(3);
+                    return val.toFixed(1);
+                },
+
+                getKPIPercentChange(kpi) {
+                    if (!kpi.previous_value || !kpi.current_value) return 0;
+                    return ((kpi.current_value - kpi.previous_value) / kpi.previous_value) * 100;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
