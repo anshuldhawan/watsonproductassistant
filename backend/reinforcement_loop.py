@@ -502,6 +502,7 @@ def handle_feedback_routing(
             insight.feedback_status = "wrong_disagree"
 
         threshold_state = get_or_create_threshold_state(db, skill_key)
+        db.flush()
         disagree_count = db.query(MethodologyReview).filter(
             MethodologyReview.skill_key == skill_key,
             MethodologyReview.is_reviewed == False
