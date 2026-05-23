@@ -211,6 +211,8 @@ class ThresholdState(Base):
     skill_key = Column(String, unique=True, index=True, nullable=False)
     current_magnitude_threshold = Column(Float, nullable=False)
     current_confidence_threshold = Column(Float, nullable=False)
+    skill_status = Column(String, default="active", nullable=False) # "active" or "paused"
+    unreviewed_disagreement_count = Column(Integer, default=0, nullable=False)
     last_updated = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
 

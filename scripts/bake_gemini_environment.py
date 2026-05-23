@@ -20,6 +20,7 @@ from typing import Any, Dict, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = PROJECT_ROOT / "dataset-manifest.json"
+LAST_OUTPUT_PATH = PROJECT_ROOT / "bake_gemini_last_output.txt"
 DEFAULT_AGENT = "antigravity-preview-05-2026"
 INLINE_SOURCE_REPO = "inline-local-source"
 SOURCE_FILES = (
@@ -172,13 +173,44 @@ def read_output_text(response: Any) -> str:
     if output_text:
         return str(output_text)
 
-    text_parts = []
-    for step in getattr(response, "steps", []) or []:
-        for name in ("text", "output_text"):
-            value = getattr(step, name, None)
-            if value:
-                text_parts.append(str(value))
-    return "\n".join(text_parts)
+    text_parts = _collect_text_parts(response)
+    if text_parts:
+        return "\n".join(text_parts)
+
+    return str(response)
+
+
+def _collect_text_parts(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (int, float, bool)):
+        return []
+    if isinstance(value, dict):
+        parts = []
+        for key, nested in value.items():
+            if key in {"text", "output_text"} and isinstance(nested, str):
+                parts.append(nested)
+            else:
+                parts.extend(_collect_text_parts(nested))
+        return parts
+    if isinstance(value, (list, tuple)):
+        parts = []
+        for item in value:
+            parts.extend(_collect_text_parts(item))
+        return parts
+
+    parts = []
+    for attr in ("text", "output_text", "content", "parts", "steps", "model_output"):
+        if hasattr(value, attr):
+            parts.extend(_collect_text_parts(getattr(value, attr)))
+    if hasattr(value, "model_dump"):
+        try:
+            parts.extend(_collect_text_parts(value.model_dump()))
+        except Exception:
+            pass
+    return parts
 
 
 def validate_bake_result(output_text: str, expected_schema_hash: str, environment_id: Optional[str]) -> None:
@@ -221,6 +253,10 @@ def update_manifest(
 
 def write_manifest(manifest: Dict[str, Any], path: Path = MANIFEST_PATH) -> None:
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
+def write_last_output(output_text: str, path: Path = LAST_OUTPUT_PATH) -> None:
+    path.write_text(output_text or "<empty Gemini output>", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -277,6 +313,7 @@ def main() -> int:
     interaction_id = read_attr(response, "id", "name")
     environment_id = read_environment_id(response)
     output_text = read_output_text(response)
+    write_last_output(output_text)
     validate_bake_result(output_text, expected_schema_hash, environment_id)
 
     print(f"Interaction id: {interaction_id}")

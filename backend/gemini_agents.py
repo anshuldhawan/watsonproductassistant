@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from .dataset_environment import resolve_analysis_environment
+from .dataset_environment import get_dataset_profile, resolve_analysis_environment
 from .models import AnalysisDefinition, KPIDefinition
 
 
@@ -202,7 +202,7 @@ class GeminiAgentClient:
         environment = resolve_analysis_environment(config)
         prompt = _single_analysis_prompt(definition, config)
         interaction = await self._create_interaction(
-            agent=definition.agent_id,
+            agent=_agent_id_for_definition(definition.agent_id, config),
             input=prompt,
             environment=environment,
         )
@@ -228,7 +228,7 @@ class GeminiAgentClient:
         config = config or {}
         base_environment = resolve_analysis_environment(config)
         loader = await self._create_interaction(
-            agent=agent_id,
+            agent=_agent_id_for_definition(agent_id, config),
             input=_group_loader_prompt(group_name, definitions, config),
             environment=base_environment,
         )
@@ -239,7 +239,7 @@ class GeminiAgentClient:
 
         for definition in definitions:
             interaction = await self._create_interaction(
-                agent=agent_id,
+                agent=_agent_id_for_definition(agent_id, config),
                 input=_group_skill_prompt(definition, config),
                 environment=environment,
             )
@@ -267,7 +267,10 @@ class GeminiAgentClient:
         config = config or {}
         environment = resolve_analysis_environment(config)
         interaction = await self._create_interaction(
-            agent=config.get("agent_id") or os.getenv("GEMINI_KPI_AGENT_ID", "kpi-monitor"),
+            agent=_agent_id_for_definition(
+                config.get("agent_id") or os.getenv("GEMINI_KPI_AGENT_ID", "kpi-monitor"),
+                config,
+            ),
             input=_kpi_monitor_prompt(kpis, config),
             environment=environment,
         )
@@ -328,6 +331,26 @@ def _group_skill_summary(definitions: Sequence[AnalysisDefinition]) -> str:
     return json.dumps(rows, sort_keys=True, default=str)
 
 
+def _agent_id_for_definition(agent_id: str, config: Dict[str, Any]) -> str:
+    if get_dataset_profile(config) == "demo":
+        return str(config.get("demo_agent_id") or os.getenv("GEMINI_DEMO_AGENT_ID") or agent_id)
+    return agent_id
+
+
+def _dataset_context(config: Dict[str, Any]) -> str:
+    if get_dataset_profile(config) != "demo":
+        return "Use the available product analytics data environment."
+    return """
+This is a Gemini-first demo run using a small fake Spotify product dataset.
+Inspect the Parquet files in data/catalog/*.parquet and
+data/play_events/date=*/part_0.parquet. The dataset is intentionally small but
+contains seeded demo patterns: free-tier users skip more, one day has a KPI
+play-count anomaly, mobile engagement is high, and subscription tiers differ by
+behavior. Use real calculations where useful, but keep the output concise and
+return only structured Insight JSON.
+""".strip()
+
+
 def _single_analysis_prompt(definition: AnalysisDefinition, config: Dict[str, Any]) -> str:
     return f"""
 Run Lighthouse skill `{definition.key}` ({definition.name}) for group `{definition.group_key}`.
@@ -337,9 +360,9 @@ Run configuration: {json.dumps(config, sort_keys=True, default=str)}
 
 {_skill_instructions(definition)}
 
-Use the available product analytics data environment. Compute the methodology,
-save any artifacts inside the agent environment, and emit only noteworthy
-findings.
+{_dataset_context(config)}
+Compute the methodology, save any artifacts inside the agent environment, and
+emit only noteworthy findings.
 
 {INSIGHT_OUTPUT_CONTRACT}
 """.strip()
@@ -357,6 +380,7 @@ The skills in scope are: {skills}.
 Skill catalog metadata: {_group_skill_summary(definitions)}
 Run configuration: {json.dumps(config, sort_keys=True, default=str)}
 
+{_dataset_context(config)}
 Inspect and cache the datasets required by these skills for reuse by follow-up
 skill interactions. Do not emit insights in this loader step. Return [].
 """.strip()
@@ -371,6 +395,8 @@ Skill description: {definition.description or "No description provided."}
 Run configuration: {json.dumps(config, sort_keys=True, default=str)}
 
 {_skill_instructions(definition)}
+
+{_dataset_context(config)}
 
 {INSIGHT_OUTPUT_CONTRACT}
 """.strip()
@@ -393,6 +419,8 @@ Run the Lighthouse KPI Monitor agent against these monitored KPIs:
 {json.dumps(kpi_rows, sort_keys=True, default=str)}
 
 Run configuration: {json.dumps(config, sort_keys=True, default=str)}
+
+{_dataset_context(config)}
 
 Compare current values against baselines, forecast bands, and configured
 thresholds. Emit Insight objects only for real breaches. If all KPIs are green,

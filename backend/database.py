@@ -15,7 +15,7 @@ Base = declarative_base()
 def ensure_runtime_schema():
     """
     Lightweight dev migration for SQLite. SQLAlchemy create_all does not add
-    columns to an existing watson.db, so keep additive run audit fields safe.
+    columns to an existing watson.db, so keep additive runtime fields safe.
     """
     if engine.dialect.name != "sqlite":
         return
@@ -34,6 +34,10 @@ def ensure_runtime_schema():
         "report_id": "VARCHAR",
         "research_job_id": "VARCHAR",
         "origin_insight_id": "VARCHAR",
+    }
+    threshold_columns = {
+        "skill_status": "VARCHAR DEFAULT 'active' NOT NULL",
+        "unreviewed_disagreement_count": "INTEGER DEFAULT 0 NOT NULL",
     }
 
     with engine.begin() as connection:
@@ -56,6 +60,17 @@ def ensure_runtime_schema():
                 connection.execute(
                     text(f"ALTER TABLE insights ADD COLUMN {column_name} {column_type}")
                 )
+
+        existing_threshold_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info(threshold_states)")).fetchall()
+        }
+        if existing_threshold_columns:
+            for column_name, column_type in threshold_columns.items():
+                if column_name not in existing_threshold_columns:
+                    connection.execute(
+                        text(f"ALTER TABLE threshold_states ADD COLUMN {column_name} {column_type}")
+                    )
 
 def get_db():
     db = SessionLocal()

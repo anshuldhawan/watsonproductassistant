@@ -1,5 +1,6 @@
 import datetime
 import math
+import uuid
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
@@ -116,6 +117,8 @@ def get_or_create_threshold_state(db: Session, skill_key: str) -> ThresholdState
             skill_key=skill_key,
             current_magnitude_threshold=0.10,  # default
             current_confidence_threshold=0.80,  # default
+            skill_status="active",
+            unreviewed_disagreement_count=0,
             last_updated=datetime.datetime.utcnow()
         )
         db.add(state)
@@ -164,10 +167,35 @@ def passes_active_threshold(insight: Any, db: Session) -> bool:
         return True
 
     state = get_or_create_threshold_state(db, skill_key)
+    if state.skill_status == "paused":
+        return False
+
     conf_val = conf if conf is not None else 0.8
 
     return (conf_val >= state.current_confidence_threshold and
             abs(mag_rel) >= state.current_magnitude_threshold)
+
+
+def normalize_signal_type(signal_type: Optional[str]) -> str:
+    """
+    Accept legacy and UI-facing feedback names, then normalize to the reward taxonomy.
+    """
+    if not signal_type:
+        return "useful"
+
+    aliases = {
+        "acted-on": "acted_on",
+        "not-useful": "not_important",
+        "not_useful": "not_important",
+        "wrong": "wrong_disagree",
+        "wrong-disagree": "wrong_disagree",
+        "wrong_i_disagree": "wrong_disagree",
+    }
+    return aliases.get(signal_type, signal_type)
+
+
+def sigmoid(value: float) -> float:
+    return 1.0 / (1.0 + math.exp(-value))
 
 
 def sample_thompson_weights(state: BanditState) -> np.ndarray:
@@ -249,7 +277,7 @@ def rank_feed(
     scored_candidates = []
     for ins in valid_candidates:
         x = extract_features(ins)
-        score = float(np.dot(theta, x))
+        score = sigmoid(float(np.dot(theta, x)))
         passes_active = passes_active_threshold(ins, db)
         scored_candidates.append((ins, score, x, passes_active))
 
@@ -296,7 +324,7 @@ def rank_feed(
     policy_ver = active_policy.version if active_policy else "v1_prior"
 
     final_ranked_feed = []
-    for rank, (item, score, x, passes_active) in enumerate(final_ranked_feed_pre := final_feed_items):
+    for rank, (item, score, x, passes_active) in enumerate(final_feed_items):
         ins_id = item.get("insight_id") if isinstance(item, dict) else getattr(item, "insight_id")
         propensity = float(propensities[rank])
         
@@ -317,6 +345,7 @@ def rank_feed(
 
         # Build return dictionary
         insight_dict = item if isinstance(item, dict) else {
+            "id": item.id,
             "insight_id": item.insight_id,
             "title": item.title,
             "summary": item.summary,
@@ -341,6 +370,7 @@ def rank_feed(
             "report_id": getattr(item, "report_id", None),
             "research_job_id": getattr(item, "research_job_id", None),
             "origin_insight_id": getattr(item, "origin_insight_id", None),
+            "created_at": item.created_at,
         }
         
         # Inject dynamic score, rank, and features
@@ -354,13 +384,14 @@ def rank_feed(
     return final_ranked_feed
 
 
-def update_bandit_posterior(db: Session, team_id: str, x: np.ndarray, r: float):
+def update_bandit_posterior(db: Session, team_id: str, x: np.ndarray, r: float) -> Dict[str, Any]:
     """
     Updates the Bayesian Linear model posterior parameters for a team (L1 Incremental Update).
     """
     state = get_or_create_bandit_state(db, team_id)
     w = np.array(state.weights)
     Sigma = np.array(state.covariance)
+    old_weights = w.copy()
 
     sigma2 = 0.1  # Likelihood noise variance
 
@@ -388,6 +419,14 @@ def update_bandit_posterior(db: Session, team_id: str, x: np.ndarray, r: float):
     state.covariance = Sigma_new.tolist()
     state.last_updated = datetime.datetime.utcnow()
     db.commit()
+
+    delta = w_new - old_weights
+    return {
+        "old_weights": old_weights.tolist(),
+        "new_weights": w_new.tolist(),
+        "weight_delta": delta.tolist(),
+        "delta_norm": float(np.linalg.norm(delta)),
+    }
 
 
 def calculate_shaped_reward(signal_type: str) -> Tuple[float, Dict[str, float]]:
@@ -427,42 +466,16 @@ def handle_feedback_routing(
     user_id: str = "user-1",
     team_id: str = "team-1",
     user_comment: Optional[str] = None
-) -> Tuple[float, bool]:
+) -> Dict[str, Any]:
     """
     Routes a feedback event. Calculates rewards, triggers posterior updates,
     routes 'wrong' disagreements to QA, and returns (reward, is_review).
     """
-    # 1. Check for 'wrong/disagree' methodology path
-    if signal_type == "wrong_disagree":
-        # Create QA methodology review record
-        insight = db.query(Insight).filter(Insight.insight_id == insight_id).first()
-        skill_key = insight.skill_key if insight else "unknown"
-        
-        review = MethodologyReview(
-            insight_id=insight_id,
-            skill_key=skill_key,
-            user_comment=user_comment or "User marked as incorrect.",
-            is_reviewed=False,
-            created_at=datetime.datetime.utcnow()
-        )
-        db.add(review)
+    signal_type = normalize_signal_type(signal_type)
+    insight = db.query(Insight).filter(Insight.insight_id == insight_id).first()
+    skill_key = insight.skill_key if insight else "unknown"
+    event_id = f"feed-{uuid.uuid4()}"
 
-        # Update insight feedback status
-        if insight:
-            insight.feedback_status = "wrong_disagree"
-        db.commit()
-
-        # Check if skill needs to be paused due to excessive disagreement
-        disagree_count = db.query(MethodologyReview).filter(
-            MethodologyReview.skill_key == skill_key,
-            MethodologyReview.is_reviewed == False
-        ).count()
-        
-        # If 3 or more unreviewed wrong feedbacks, we'd raise a QA alert
-        return 0.0, True
-
-    # 2. Add standard FeedbackEvent record
-    event_id = f"feed-{datetime.datetime.utcnow().timestamp()}-{np.random.randint(1000)}"
     feedback_event = FeedbackEvent(
         feedback_id=event_id,
         insight_id=insight_id,
@@ -474,8 +487,44 @@ def handle_feedback_routing(
     )
     db.add(feedback_event)
 
-    # Update insight feedback status
-    insight = db.query(Insight).filter(Insight.insight_id == insight_id).first()
+    # 1. Check for 'wrong/disagree' methodology path. This is logged but never rewarded.
+    if signal_type == "wrong_disagree":
+        review = MethodologyReview(
+            insight_id=insight_id,
+            skill_key=skill_key,
+            user_comment=user_comment or "User marked as incorrect.",
+            is_reviewed=False,
+            created_at=datetime.datetime.utcnow()
+        )
+        db.add(review)
+
+        if insight:
+            insight.feedback_status = "wrong_disagree"
+
+        threshold_state = get_or_create_threshold_state(db, skill_key)
+        disagree_count = db.query(MethodologyReview).filter(
+            MethodologyReview.skill_key == skill_key,
+            MethodologyReview.is_reviewed == False
+        ).count()
+        threshold_state.unreviewed_disagreement_count = disagree_count
+        if threshold_state.unreviewed_disagreement_count >= 3:
+            threshold_state.skill_status = "paused"
+        threshold_state.last_updated = datetime.datetime.utcnow()
+        db.commit()
+
+        return {
+            "feedback_id": event_id,
+            "signal_type": signal_type,
+            "ranking_reward": None,
+            "posterior_updated": False,
+            "routed_to_review": True,
+            "methodology_review_created": True,
+            "skill_key": skill_key,
+            "skill_status": threshold_state.skill_status,
+            "unreviewed_disagreement_count": threshold_state.unreviewed_disagreement_count,
+            "message": "Feedback routed to methodology review. No ranking reward was applied.",
+        }
+
     if insight:
         insight.feedback_status = signal_type
 
@@ -503,6 +552,7 @@ def handle_feedback_routing(
     db.commit()
 
     # 4. Trigger Bayesian update to the local team bandit (L1 Update)
+    posterior_update = None
     if insight:
         x = extract_features(insight)
         
@@ -512,7 +562,7 @@ def handle_feedback_routing(
         if targeted["actionability"] != 0.0:
             x[4] = max(0.0, x[4] + targeted["actionability"])
 
-        update_bandit_posterior(db, team_id, x, reward)
+        posterior_update = update_bandit_posterior(db, team_id, x, reward)
 
     # 5. Handle immediate L2 threshold trigger if "not_important"
     if targeted["raise_threshold"] and insight:
@@ -524,7 +574,18 @@ def handle_feedback_routing(
         threshold_state.last_updated = datetime.datetime.utcnow()
         db.commit()
 
-    return reward, False
+    return {
+        "feedback_id": event_id,
+        "signal_type": signal_type,
+        "ranking_reward": reward,
+        "targeted_updates": targeted,
+        "posterior_updated": bool(posterior_update),
+        "posterior_update": posterior_update,
+        "routed_to_review": False,
+        "team_id": team_id,
+        "skill_key": skill_key,
+        "message": "Feedback applied to the team ranking posterior.",
+    }
 
 
 # ==========================================

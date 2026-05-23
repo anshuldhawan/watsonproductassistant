@@ -5,7 +5,7 @@ import numpy as np
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from .models import Insight
-from .reinforcement_loop import extract_features, PRIOR_WEIGHTS, PolicyVersion
+from .reinforcement_loop import extract_features, sigmoid, PRIOR_WEIGHTS, PolicyVersion
 
 # Weight configurations for the Attention Score
 WEIGHTS = {
@@ -129,8 +129,7 @@ def cluster_and_score_insights(db: Session, new_insights: List[Dict[str, Any]], 
         active_policy = db.query(PolicyVersion).filter(PolicyVersion.status == "active").first()
         policy_weights = active_policy.parameters.get("weights", PRIOR_WEIGHTS) if active_policy else PRIOR_WEIGHTS
 
-        attention = float(np.dot(policy_weights, x_feat))
-        attention = max(0.01, min(1.0, attention))
+        attention = max(0.01, min(1.0, sigmoid(float(np.dot(policy_weights, x_feat)))))
 
         # Build Database model
         db_insight = Insight(

@@ -5,7 +5,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.database import Base
-from backend.dataset_environment import DatasetEnvironmentError, get_baked_environment_id
+from backend.dataset_environment import (
+    DatasetEnvironmentError,
+    get_baked_environment_id,
+    get_dataset_profile,
+    resolve_analysis_environment,
+)
 from backend.env import load_project_env
 from backend.gemini_agents import (
     GeminiAgentClient,
@@ -23,6 +28,11 @@ from scripts.bake_gemini_environment import (
     compute_source_hash,
     update_manifest,
     validate_bake_result,
+)
+from scripts.bake_gemini_demo_environment import (
+    build_demo_bake_prompt,
+    compute_source_hash as compute_demo_source_hash,
+    update_demo_manifest,
 )
 
 
@@ -121,6 +131,29 @@ def test_manifest_guard_rejects_local_placeholder(tmp_path):
         raise AssertionError("Expected DatasetEnvironmentError")
 
 
+def test_demo_manifest_resolution_accepts_demo_baked_environment(tmp_path):
+    manifest = tmp_path / "demo-dataset-manifest.json"
+    manifest.write_text(
+        '{"environment_id": "env-demo123", "environment_status": "demo-baked"}',
+        encoding="utf-8",
+    )
+
+    assert get_baked_environment_id(manifest, profile="demo") == "env-demo123"
+
+
+def test_dataset_profile_from_config_and_env(monkeypatch):
+    monkeypatch.setenv("GEMINI_DATASET_PROFILE", "demo")
+
+    assert get_dataset_profile({}) == "demo"
+    assert get_dataset_profile({"dataset_profile": "full"}) == "full"
+
+
+def test_resolve_analysis_environment_uses_explicit_override(monkeypatch):
+    monkeypatch.setenv("GEMINI_DATASET_PROFILE", "demo")
+
+    assert resolve_analysis_environment({"environment": "env-debug"}) == "env-debug"
+
+
 def test_bake_manifest_update_keeps_existing_dataset_metadata():
     original = {
         "dataset_version": "spotify-v1",
@@ -182,6 +215,40 @@ def test_bake_prompt_embeds_local_source_bundle():
     assert "python scripts/generate_data.py" in prompt
     assert "EXPECTED_SCHEMA_HASH=schema-hash-123" in prompt
     assert "GENERATOR_SOURCE_HASH=source-hash-123" in prompt
+
+
+def test_demo_bake_prompt_uses_small_demo_source():
+    prompt = build_demo_bake_prompt(
+        {
+            "scripts/generate_demo_data.py": "print('demo generate')",
+            "scripts/verify_demo_data.py": "print('demo verify')",
+            "requirements.txt": "pandas>=2.0.0\n",
+        },
+        "demo-source-hash",
+    )
+
+    assert "SOURCE_BUNDLE_BASE64_JSON" in prompt
+    assert "generate_demo_data.py" in prompt
+    assert "DEMO_VERIFICATION_PASSED" in prompt
+    assert "DEMO_GENERATOR_SOURCE_HASH=demo-source-hash" in prompt
+
+
+def test_demo_manifest_update_records_demo_status():
+    updated = update_demo_manifest(
+        {"dataset_version": "spotify-demo-v1"},
+        environment_id="env-demo",
+        source_hash="demo-hash",
+        interaction_id="interaction-demo",
+    )
+
+    assert updated["dataset_profile"] == "demo"
+    assert updated["environment_status"] == "demo-baked"
+    assert updated["generator_repo"] == "inline-demo-source"
+    assert updated["generator_source_hash"] == "demo-hash"
+
+
+def test_demo_source_hash_changes_with_content():
+    assert compute_demo_source_hash({"a": "1"}) != compute_demo_source_hash({"a": "2"})
 
 
 def test_bake_result_validation_requires_hash_and_environment():
@@ -259,6 +326,43 @@ def test_gemini_client_allows_explicit_environment_override(monkeypatch):
     asyncio.run(client.run_single_analysis(definition, {"environment": "env-debug"}))
 
     assert captured["environment"] == "env-debug"
+
+
+def test_gemini_demo_agent_override_still_uses_interactions(monkeypatch):
+    captured = {}
+
+    async def fake_create_interaction(**kwargs):
+        captured.update(kwargs)
+        return GeminiInteractionRecord(
+            interaction_id="interaction-demo",
+            environment_id="env-demo-run",
+            output_text='[{"title": "Demo finding", "summary": "A demo insight."}]',
+        )
+
+    monkeypatch.setenv("GEMINI_DATASET_PROFILE", "demo")
+    monkeypatch.setenv("GEMINI_DEMO_AGENT_ID", "antigravity-preview-05-2026")
+    monkeypatch.setattr(
+        "backend.gemini_agents.resolve_analysis_environment",
+        lambda config: "env-demo-baked",
+    )
+
+    client = object.__new__(GeminiAgentClient)
+    client._create_interaction = fake_create_interaction
+    definition = AnalysisDefinition(
+        key="cohort-retention-curves",
+        name="Cohort Retention Curves",
+        description="Retention by cohort.",
+        group_key="retention-churn",
+        group_name="Retention & Churn",
+        agent_id="retention-analyst",
+        default_config={"date_range": "30d"},
+    )
+
+    asyncio.run(client.run_single_analysis(definition, {}))
+
+    assert captured["agent"] == "antigravity-preview-05-2026"
+    assert captured["environment"] == "env-demo-baked"
+    assert "small fake Spotify" in captured["input"]
 
 
 def test_execute_gemini_run_routes_single_analysis(monkeypatch):

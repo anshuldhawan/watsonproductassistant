@@ -171,7 +171,7 @@ def list_insights(team_id: str = "team-1", db: Session = Depends(get_db)):
     ranked = rank_feed(candidates, team_id, db)
     return ranked
 
-@app.post("/api/insights/{insight_id}/feedback", response_model=InsightSchema)
+@app.post("/api/insights/{insight_id}/feedback")
 def submit_feedback(insight_id: str, feedback_data: FeedbackUpdate, db: Session = Depends(get_db)):
     db_insight = db.query(Insight).filter(Insight.insight_id == insight_id).first()
     if not db_insight:
@@ -186,7 +186,7 @@ def submit_feedback(insight_id: str, feedback_data: FeedbackUpdate, db: Session 
         
     # Route the feedback through our learning system
     from .reinforcement_loop import handle_feedback_routing
-    reward, is_review = handle_feedback_routing(
+    learning_update = handle_feedback_routing(
         db=db,
         insight_id=insight_id,
         signal_type=signal,
@@ -197,7 +197,10 @@ def submit_feedback(insight_id: str, feedback_data: FeedbackUpdate, db: Session 
     
     db.commit()
     db.refresh(db_insight)
-    return db_insight
+    return {
+        "insight": InsightSchema.model_validate(db_insight).model_dump(mode="json"),
+        "learning_update": learning_update,
+    }
 
 @app.get("/api/kpis", response_model=List[KPIDefinitionSchema])
 def list_kpis(db: Session = Depends(get_db)):
@@ -444,11 +447,12 @@ from .reinforcement_loop import (
     run_daily_batch_refit,
     run_weekly_l2_threshold_controller,
     run_valence_parity_audit,
+    run_offline_policy_evaluation,
     get_or_create_threshold_state,
     PRIOR_WEIGHTS,
     FEATURE_NAMES
 )
-from .models import PolicyVersion, ThresholdState, MethodologyReview, FeedbackEvent, SurfacingRecord
+from .models import PolicyVersion, ThresholdState, MethodologyReview, FeedbackEvent, SurfacingRecord, RewardRecord
 
 @app.get("/api/admin/status")
 def get_admin_status(db: Session = Depends(get_db)):
@@ -459,6 +463,7 @@ def get_admin_status(db: Session = Depends(get_db)):
     feedback_count = db.query(FeedbackEvent).count()
     surfacing_count = db.query(SurfacingRecord).count()
     review_count = db.query(MethodologyReview).filter(MethodologyReview.is_reviewed == False).count()
+    recent_feedback = db.query(FeedbackEvent).order_by(FeedbackEvent.timestamp.desc()).limit(6).all()
 
     # 3. Valence parity
     valence_parity = run_valence_parity_audit(db)
@@ -471,7 +476,17 @@ def get_admin_status(db: Session = Depends(get_db)):
         "valence_parity_score": valence_parity,
         "feedback_count": feedback_count,
         "surfacing_count": surfacing_count,
-        "unreviewed_methodology_reviews_count": review_count
+        "unreviewed_methodology_reviews_count": review_count,
+        "recent_learning_events": [
+            {
+                "feedback_id": event.feedback_id,
+                "insight_id": event.insight_id,
+                "signal_type": event.signal_type,
+                "team_id": event.team_id,
+                "timestamp": event.timestamp,
+            }
+            for event in recent_feedback
+        ]
     }
 
 
@@ -515,6 +530,8 @@ def update_thresholds_manually(payload: Dict[str, Any], db: Session = Depends(ge
         state.current_magnitude_threshold = float(mag_val)
     if conf_val is not None:
         state.current_confidence_threshold = float(conf_val)
+    if payload.get("skill_status") in {"active", "paused"}:
+        state.skill_status = payload["skill_status"]
 
     state.last_updated = datetime.datetime.utcnow()
     db.commit()
@@ -526,6 +543,33 @@ def update_thresholds_manually(payload: Dict[str, Any], db: Session = Depends(ge
 def trigger_l2_threshold_auto_adjust(db: Session = Depends(get_db)):
     run_weekly_l2_threshold_controller(db)
     return {"status": "success", "message": "L2 skill thresholds adjusted based on aggregate feedback statistics."}
+
+
+@app.get("/api/admin/skill-priors")
+def list_skill_selection_priors(db: Session = Depends(get_db)):
+    rewards = db.query(RewardRecord).all()
+    totals: Dict[str, Dict[str, Any]] = {}
+    for reward in rewards:
+        insight = db.query(Insight).filter(Insight.insight_id == reward.insight_id).first()
+        if not insight:
+            continue
+        entry = totals.setdefault(
+            insight.skill_key,
+            {"skill_key": insight.skill_key, "reward_sum": 0.0, "feedback_count": 0, "selection_prior": 0.0},
+        )
+        entry["reward_sum"] += reward.shaped_reward + reward.delayed_credits
+        entry["feedback_count"] += 1
+
+    for entry in totals.values():
+        entry["selection_prior"] = entry["reward_sum"] / max(1, entry["feedback_count"])
+
+    return sorted(totals.values(), key=lambda item: item["selection_prior"], reverse=True)
+
+
+@app.post("/api/admin/ope")
+def run_candidate_ope(payload: Dict[str, Any], db: Session = Depends(get_db)):
+    weights = payload.get("weights") or PRIOR_WEIGHTS
+    return {"ope_score": run_offline_policy_evaluation(db, weights)}
 
 
 @app.get("/api/admin/reviews")
@@ -559,6 +603,16 @@ def resolve_methodology_review(review_id: int, payload: Dict[str, Any], db: Sess
     insight = db.query(Insight).filter(Insight.insight_id == review.insight_id).first()
     if insight and action == "correct":
         insight.feedback_status = "pending"  # Reset status
+
+    remaining = db.query(MethodologyReview).filter(
+        MethodologyReview.skill_key == review.skill_key,
+        MethodologyReview.is_reviewed == False,
+    ).count()
+    threshold = get_or_create_threshold_state(db, review.skill_key)
+    threshold.unreviewed_disagreement_count = remaining
+    if remaining == 0 and threshold.skill_status == "paused":
+        threshold.skill_status = "active"
+    threshold.last_updated = datetime.datetime.utcnow()
 
     db.commit()
     return {"status": "success", "message": f"Methodology disagreement resolved with action: {action}."}

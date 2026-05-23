@@ -220,17 +220,45 @@
                                     <span class="mr-1.5 text-gray-400 font-semibold">Feed Utility:</span>
                                     <select @change="handleFeedbackChange(insight.insight_id, $event.target.value)" class="bg-[#162135] text-gray-300 border border-[#1f293d] rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-emerald-500 transition-all cursor-pointer">
                                         <option value="">-- Rate Insight --</option>
-                                        <option value="acted_on">👍 Acted on it</option>
-                                        <option value="useful">✅ Useful</option>
-                                        <option value="already_knew">💡 Already knew this</option>
-                                        <option value="not_actionable">⚠️ Not actionable</option>
-                                        <option value="not_important">💤 Not important</option>
-                                        <option value="wrong_disagree">❌ Wrong / I disagree</option>
+                                        <option value="acted_on">Acted on it</option>
+                                        <option value="useful">Useful</option>
+                                        <option value="already_knew">Already knew this</option>
+                                        <option value="not_actionable">Not actionable</option>
+                                        <option value="not_important">Not important</option>
+                                        <option value="wrong_disagree">Wrong / I disagree</option>
                                     </select>
                                 </div>
                                 <div class="text-emerald-400 font-mono font-bold flex items-center space-x-1" x-show="insight.feedback_status !== 'pending' && insight.feedback_status !== 'useful' && insight.feedback_status !== 'not_useful' && insight.feedback_status !== 'acted_on' && insight.feedback_status !== 'not-useful'">
                                     <i data-lucide="check" class="w-3.5 h-3.5"></i>
                                     <span class="uppercase text-[10px] tracking-wide" x-text="'FEEDBACK: ' + insight.feedback_status.replace('_', ' ').replace('-', ' ')"></span>
+                                </div>
+                            </div>
+
+                            <!-- Learning Signal Receipt -->
+                            <div x-show="learningSignals[insight.insight_id]" x-transition class="border border-emerald-500/20 bg-emerald-500/10 rounded-xl p-4 text-xs space-y-3">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div class="flex items-center space-x-2 text-emerald-300 font-bold">
+                                        <span class="relative flex h-2.5 w-2.5">
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                                        </span>
+                                        <span>Learning input received</span>
+                                    </div>
+                                    <span class="font-mono text-emerald-200" x-text="formatRewardLabel(learningSignals[insight.insight_id])"></span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-gray-300">
+                                    <div class="bg-black/20 border border-emerald-500/10 rounded-lg p-2">
+                                        <span class="block text-[10px] uppercase text-gray-500 font-bold font-mono">Signal</span>
+                                        <span class="font-semibold" x-text="formatSignalLabel(learningSignals[insight.insight_id].signal_type)"></span>
+                                    </div>
+                                    <div class="bg-black/20 border border-emerald-500/10 rounded-lg p-2">
+                                        <span class="block text-[10px] uppercase text-gray-500 font-bold font-mono">Route</span>
+                                        <span class="font-semibold" x-text="learningSignals[insight.insight_id].routed_to_review ? 'Methodology review' : 'Bandit posterior update'"></span>
+                                    </div>
+                                    <div class="bg-black/20 border border-emerald-500/10 rounded-lg p-2">
+                                        <span class="block text-[10px] uppercase text-gray-500 font-bold font-mono">Posterior Delta</span>
+                                        <span class="font-semibold" x-text="formatPosteriorDelta(learningSignals[insight.insight_id])"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -728,6 +756,22 @@
                 showResearchModal: false,
                 showReportModal: false,
                 researchEventSource: null,
+                adminStatus: {
+                    active_policy_version: 'v1_prior',
+                    weights: [],
+                    feature_names: [],
+                    ope_score: 1.0,
+                    valence_parity_score: 1.0,
+                    feedback_count: 0,
+                    surfacing_count: 0,
+                    unreviewed_methodology_reviews_count: 0,
+                    recent_learning_events: []
+                },
+                reviews: [],
+                thresholds: [],
+                skillPriors: [],
+                learningSignals: {},
+                learningToast: null,
                 showLogModal: false,
                 selectedRun: null,
                 logLines: [],

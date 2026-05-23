@@ -10,6 +10,8 @@ venv/
 .venv/
 .venv-gemini/
 .env
+bake_gemini_last_output.txt
+bake_gemini_demo_last_output.txt
 
 # Test and local DB artifacts
 .pytest_cache/

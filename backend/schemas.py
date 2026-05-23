@@ -80,7 +80,7 @@ class InsightSchema(InsightBase):
         from_attributes = True
 
 class FeedbackUpdate(BaseModel):
-    feedback_status: str # "useful", "not-useful", "acted-on", etc.
+    feedback_status: Optional[str] = None # "useful", "not-useful", "acted-on", etc.
     user_id: Optional[str] = "user-1"
     team_id: Optional[str] = "team-1"
     signal_type: Optional[str] = None # "acted_on", "useful", "already_knew", "not_actionable", "not_important", "wrong_disagree", etc.
@@ -142,6 +142,8 @@ class ThresholdStateSchema(BaseModel):
     skill_key: str
     current_magnitude_threshold: float
     current_confidence_threshold: float
+    skill_status: str
+    unreviewed_disagreement_count: int
     last_updated: datetime
 
     class Config:
@@ -150,7 +152,7 @@ class ThresholdStateSchema(BaseModel):
 class BanditStateSchema(BaseModel):
     id: int
     team_id: str
-    weights: Dict[str, Any]
+    weights: Any
     covariance: Any
     last_updated: datetime
 

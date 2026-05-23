@@ -1,0 +1,26 @@
+{
+  "dataset_version": "spotify-demo-v1",
+  "dataset_profile": "demo",
+  "environment_id": "05b2d510-9222-4fb9-9e6f-369b8bd74a35",
+  "environment_status": "demo-baked",
+  "generator_repo": "inline-demo-source",
+  "generator_sha": "9bcca0e3c49c70ca076145e6c53a6cea76ac410c0976ca2a4d6cf4a125bfb6c1",
+  "seed": 7,
+  "date_range": {
+    "start": "2026-05-01",
+    "end": "2026-05-30"
+  },
+  "row_counts": {
+    "users": 300,
+    "artists": 100,
+    "albums": 200,
+    "tracks": 1000,
+    "playlist_tracks": 1000,
+    "events_min": 9000,
+    "events_max": 13000
+  },
+  "created_at": "2026-05-23T00:00:00Z",
+  "generator_source_hash": "9bcca0e3c49c70ca076145e6c53a6cea76ac410c0976ca2a4d6cf4a125bfb6c1",
+  "baked_interaction_id": "v1_ChdmREFTYXRtWEJ0SzNqTWNQMzQ3b29BaxIXZkRBU2F0bVhCdEszak1jUDM0N29vQWs",
+  "baked_at": "2026-05-23T23:05:27Z"
+}
