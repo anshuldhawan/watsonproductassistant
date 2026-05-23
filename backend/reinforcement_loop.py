@@ -700,6 +700,31 @@ def run_offline_policy_evaluation(db: Session, candidate_weights: List[float]) -
     return float(score_sum / weight_sum)
 
 
+def get_skill_selection_prior_scores(db: Session) -> Dict[str, float]:
+    """
+    L3 Skill-selection priors. Higher-reward skills get scheduled earlier in group runs.
+    """
+    rewards = db.query(RewardRecord).all()
+    totals: Dict[str, Dict[str, float]] = {}
+    for reward in rewards:
+        insight = db.query(Insight).filter(Insight.insight_id == reward.insight_id).first()
+        if not insight:
+            continue
+        entry = totals.setdefault(insight.skill_key, {"reward_sum": 0.0, "count": 0.0})
+        entry["reward_sum"] += reward.shaped_reward + reward.delayed_credits
+        entry["count"] += 1.0
+
+    return {
+        skill_key: values["reward_sum"] / max(1.0, values["count"])
+        for skill_key, values in totals.items()
+    }
+
+
+def is_skill_paused(db: Session, skill_key: str) -> bool:
+    state = db.query(ThresholdState).filter(ThresholdState.skill_key == skill_key).first()
+    return bool(state and state.skill_status == "paused")
+
+
 def run_daily_batch_refit(db: Session) -> PolicyVersion:
     """
     Daily full policy refit. Aggregates all global feedback, refits parameters,
