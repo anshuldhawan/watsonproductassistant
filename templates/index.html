@@ -216,7 +216,7 @@
                                     <button x-show="insight.report_id" @click="openResearchReport(insight.report_id)" class="text-sky-300 hover:text-sky-200 font-bold">Open report</button>
                                     <span x-show="insight.citations && insight.citations.length" class="font-mono">Citations: <span class="text-gray-400" x-text="insight.citations.length"></span></span>
                                 </div>
-                                <div class="flex items-center space-x-2" x-show="insight.feedback_status === 'pending' || insight.feedback_status === 'useful' || insight.feedback_status === 'not_useful' || insight.feedback_status === 'acted_on' || insight.feedback_status === 'not-useful'">
+                                <div class="flex items-center space-x-2" x-show="insight.feedback_status === 'pending'">
                                     <span class="mr-1.5 text-gray-400 font-semibold">Feed Utility:</span>
                                     <select @change="handleFeedbackChange(insight.insight_id, $event.target.value)" class="bg-[#162135] text-gray-300 border border-[#1f293d] rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-emerald-500 transition-all cursor-pointer">
                                         <option value="">-- Rate Insight --</option>
@@ -228,7 +228,7 @@
                                         <option value="wrong_disagree">Wrong / I disagree</option>
                                     </select>
                                 </div>
-                                <div class="text-emerald-400 font-mono font-bold flex items-center space-x-1" x-show="insight.feedback_status !== 'pending' && insight.feedback_status !== 'useful' && insight.feedback_status !== 'not_useful' && insight.feedback_status !== 'acted_on' && insight.feedback_status !== 'not-useful'">
+                                <div class="text-emerald-400 font-mono font-bold flex items-center space-x-1" x-show="insight.feedback_status !== 'pending'">
                                     <i data-lucide="check" class="w-3.5 h-3.5"></i>
                                     <span class="uppercase text-[10px] tracking-wide" x-text="'FEEDBACK: ' + insight.feedback_status.replace('_', ' ').replace('-', ' ')"></span>
                                 </div>
@@ -575,6 +575,32 @@
                     </div>
                 </div>
 
+                <!-- L3 Skill Selection Priors -->
+                <div class="bg-[#0f1524] border border-[#1f293d] p-6 rounded-2xl space-y-4">
+                    <h3 class="text-lg font-bold flex items-center space-x-2 text-white">
+                        <i data-lucide="list-filter" class="text-sky-400 w-5 h-5"></i>
+                        <span>L3 Skill Selection Priors</span>
+                    </h3>
+                    <p class="text-xs text-gray-400">Aggregate reward priors used to run high-value skills earlier in group scheduling.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <template x-if="skillPriors.length === 0">
+                            <div class="text-xs text-gray-500 border border-dashed border-[#1f293d] rounded-xl p-4">No reward history yet.</div>
+                        </template>
+                        <template x-for="prior in skillPriors.slice(0, 8)" :key="prior.skill_key">
+                            <div class="p-3 bg-[#141b2d] border border-[#1f293d] rounded-xl text-xs space-y-2">
+                                <div class="font-bold text-gray-200 truncate" x-text="prior.skill_key.replaceAll('-', ' ')"></div>
+                                <div class="flex justify-between font-mono text-[10px] text-gray-400">
+                                    <span>prior</span>
+                                    <span class="text-sky-300" x-text="Number(prior.selection_prior).toFixed(3)"></span>
+                                </div>
+                                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-sky-400" :style="'width: ' + Math.min(100, Math.max(0, (Number(prior.selection_prior) + 1) * 50)) + '%'"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
                 <!-- Skill L2 Thresholds Control Panel -->
                 <div class="bg-[#0f1524] border border-[#1f293d] p-6 rounded-2xl space-y-4">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f293d]/50 pb-4">
@@ -814,6 +840,7 @@
                     await this.fetchResearchJobs();
                     await this.fetchResearchCorpora();
                     await this.fetchResearchSchedules();
+                    await this.fetchAdminStatus();
 
                     // Periodically poll run status and insights every 5s
                     setInterval(async () => {
@@ -821,6 +848,7 @@
                         await this.fetchInsights();
                         await this.fetchKPIs();
                         await this.fetchResearchJobs();
+                        await this.fetchAdminStatus();
                     }, 5000);
                 },
 
