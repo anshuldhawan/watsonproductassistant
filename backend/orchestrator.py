@@ -311,7 +311,7 @@ async def execute_analysis_skill(run_id: str, skill_key: str, config: Dict[str, 
             
             return [{
                 "insight_id": str(uuid.uuid4()),
-                "title": "Watson stickiness analysis reports robust DAU/MAU index at 72.5%",
+                "title": "Watsons stickiness analysis reports robust DAU/MAU index at 72.5%",
                 "summary": "Daily active user counts remain highly stable throughout May 2026, averaging 7,254 DAU from a total active population of 10,000 unique users. This yields an exceptional stickiness index of 72.54%, proving strong product hook and regular listening habits. Platforms Android and iOS lead stickiness, while WebPlayer exhibits a slight weekend drop-off.",
                 "group": "engagement-patterns",
                 "skill": "dau-wau-mau-stickiness",
@@ -443,7 +443,7 @@ async def execute_analysis_skill(run_id: str, skill_key: str, config: Dict[str, 
             
             return [{
                 "insight_id": str(uuid.uuid4()),
-                "title": f"Watson Analysis: Pattern detected in {clean_name}",
+                "title": f"Watsons Analysis: Pattern detected in {clean_name}",
                 "summary": f"A comprehensive diagnostic run of the {clean_name} model was executed on May 2026 data. This automated check verified core platform telemetry, validating user profiles against active listening durations. The statistical distribution is aligned with baseline expectations, showing a standard deviation of 1.14 and no critical failures.",
                 "group": "predictive-modelling",
                 "skill": skill_key,

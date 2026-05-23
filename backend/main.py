@@ -50,7 +50,7 @@ from .research_orchestrator import (
 Base.metadata.create_all(bind=engine)
 ensure_runtime_schema()
 
-app = FastAPI(title="Watson: Automated Product Analyst API", version="1.0.0")
+app = FastAPI(title="Watsons: an army of automated Product Analysts API", version="1.0.0")
 
 # Mount static and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")

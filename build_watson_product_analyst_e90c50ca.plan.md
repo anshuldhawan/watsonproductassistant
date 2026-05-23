@@ -1,6 +1,6 @@
 ---
-name: Build Watson Product Analyst
-overview: Implement 'Watson', an automated product analyst system featuring a FastAPI control plane, an Insight Engine with attention scoring/deduplication, a scheduler for KPI anomaly detection, and a React-based PM dashboard using the baked Spotify dataset.
+name: Build Watsons Product Analysts
+overview: Implement 'Watsons', an army of automated Product Analysts featuring a FastAPI control plane, an Insight Engine with attention scoring/deduplication, a scheduler for KPI anomaly detection, and a React-based PM dashboard using the baked Spotify dataset.
 todos:
   - id: setup-backend
     content: Establish the FastAPI backend structure, SQLite database models, and API routers
@@ -17,9 +17,9 @@ todos:
 isProject: false
 ---
 
-# Watson: Automated Product Analyst Implementation Plan
+# Watsons: an army of automated Product Analysts Implementation Plan
 
-This plan outlines the architecture, data structures, and step-by-step phases to build **Watson** (codename Lighthouse), an automated product analyst that orchestrates Gemini Managed Agents (or local execution scripts) over our baked Spotify dataset to surface a ranked feed of actionable business insights.
+This plan outlines the architecture, data structures, and step-by-step phases to build **Watsons** (codename Lighthouse), an army of automated Product Analysts that orchestrates Gemini Managed Agents (or local execution scripts) over our baked Spotify dataset to surface a ranked feed of actionable business insights.
 
 ## System Architecture & Data Flow
 

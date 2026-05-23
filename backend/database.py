@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./watson.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./watsons.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
@@ -15,7 +15,7 @@ Base = declarative_base()
 def ensure_runtime_schema():
     """
     Lightweight dev migration for SQLite. SQLAlchemy create_all does not add
-    columns to an existing watson.db, so keep additive runtime fields safe.
+    columns to an existing watsons.db, so keep additive runtime fields safe.
     """
     if engine.dialect.name != "sqlite":
         return

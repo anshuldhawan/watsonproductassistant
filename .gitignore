@@ -15,7 +15,7 @@ bake_gemini_demo_last_output.txt
 
 # Test and local DB artifacts
 .pytest_cache/
-watson.db
+*.db
 
 # OS files
 .DS_Store

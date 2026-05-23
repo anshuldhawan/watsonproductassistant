@@ -1,12 +1,12 @@
-# Watson: Automated Product Analyst
+# Watsons: an army of automated Product Analysts
 
-An AI-powered product analytics system that transforms raw product data into a prioritized feed of actionable business insights. Watson orchestrates [Gemini Managed Agents](https://ai.google.dev/gemini-api/docs/agents) for quantitative analysis and the [Gemini Deep Research Agent](https://ai.google.dev/gemini-api/docs/interactions/deep-research) for qualitative user and market research — delivering a unified "what needs attention" stream for product managers.
+An AI-powered product analytics system that transforms raw product data into a prioritized feed of actionable business insights. Watsons orchestrates [Gemini Managed Agents](https://ai.google.dev/gemini-api/docs/agents) for quantitative analysis and the [Gemini Deep Research Agent](https://ai.google.dev/gemini-api/docs/interactions/deep-research) for qualitative user and market research, delivering a unified "what needs attention" stream for product managers.
 
 ---
 
 ## How It Works
 
-Watson replaces the manual analyst workflow of pulling data, computing metrics, and interpreting results. A PM selects an analysis (or an entire category), and Watson runs it end-to-end: pulls data, executes the methodology, produces charts, and returns **ranked insights worth attention** rather than raw numbers.
+Watsons replaces the manual analyst workflow of pulling data, computing metrics, and interpreting results. A PM selects an analysis (or an entire category), and Watsons runs it end-to-end: pulls data, executes the methodology, produces charts, and returns **ranked insights worth attention** rather than raw numbers.
 
 The system operates in three modes:
 
@@ -24,7 +24,7 @@ Additionally, a qualitative research layer uses the Gemini Deep Research Agent t
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                        Watson Web App                                     │
+│                        Watsons Web App                                    │
 │  Insight Feed · Analysis Catalog · Live Run View · KPI Monitor · Research│
 └──────────┬─────────────────────────────────────┬─────────────────────────┘
            │                                     │
@@ -64,7 +64,7 @@ Additionally, a qualitative research layer uses the Gemini Deep Research Agent t
 
 ### Managed Agents — Quantitative Analysis
 
-Watson maps its 87-analysis catalog onto the [Gemini Managed Agents](https://ai.google.dev/gemini-api/docs/agents) framework. Each analysis becomes a reusable agent **skill** (`SKILL.md`); each of the 13 categories becomes a **group agent** with its own system instructions.
+Watsons maps its 87-analysis catalog onto the [Gemini Managed Agents](https://ai.google.dev/gemini-api/docs/agents) framework. Each analysis becomes a reusable agent **skill** (`SKILL.md`); each of the 13 categories becomes a **group agent** with its own system instructions.
 
 **How it works:**
 

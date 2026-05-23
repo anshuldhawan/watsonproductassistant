@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Watson // Automated Product Analyst</title>
+    <title>Watsons // an army of automated Product Analysts</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js -->
@@ -22,20 +22,20 @@
         }
     </style>
 </head>
-<body class="bg-[#0b0f19] text-gray-100 min-h-screen flex flex-col" x-data="watsonApp()">
+<body class="bg-[#0b0f19] text-gray-100 min-h-screen flex flex-col" x-data="watsonsApp()">
 
     <!-- Header Navigation -->
-    <header class="border-b border-[#1f293d] bg-[#0f1524] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div class="flex items-center space-x-3">
+    <header class="border-b border-[#1f293d] bg-[#0f1524] px-4 py-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-50">
+        <div class="flex items-center space-x-3 min-w-0">
             <div class="bg-gradient-to-tr from-emerald-400 to-indigo-600 p-2.5 rounded-xl shadow-lg">
                 <i data-lucide="brain-circuit" class="w-6 h-6 text-white"></i>
             </div>
-            <div>
-                <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">WATSON</span>
-                <span class="text-xs text-gray-400 ml-1.5 uppercase tracking-widest font-mono">analyst v1.0</span>
+            <div class="min-w-0">
+                <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">WATSONS</span>
+                <span class="block sm:inline text-xs text-gray-400 sm:ml-1.5 uppercase tracking-widest font-mono">automated analysts v1.0</span>
             </div>
         </div>
-        <div class="flex items-center space-x-4">
+        <div class="flex flex-wrap items-center gap-3">
             <button @click="triggerContinuousMonitoring()" class="flex items-center space-x-2 bg-[#1e293b] hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium border border-[#334155] transition-all">
                 <i data-lucide="shield-alert" class="w-4 h-4 text-emerald-400"></i>
                 <span>Run KPI Audit</span>
@@ -124,12 +124,20 @@
             
             <!-- Tab 1: Attention Feed -->
             <div x-show="activeTab === 'feed'" class="space-y-6">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f293d] pb-6">
-                    <div>
-                        <h1 class="text-2xl font-extrabold tracking-tight">Attention Insights</h1>
-                        <p class="text-sm text-gray-400 mt-1">Lighthouse priorities scored, ranked, and clustered by Watson's Insight Engine.</p>
+                <section class="relative min-h-[220px] overflow-hidden rounded-lg border border-[#1f293d] bg-[#0f1524]">
+                    <img src="/static/watsons-analyst-hero.png" alt="Watsons automated analyst command room" class="absolute inset-0 h-full w-full object-cover object-left md:object-center">
+                    <div class="absolute inset-0 bg-gradient-to-r from-[#07101b]/95 via-[#07101b]/72 to-[#07101b]/22"></div>
+                    <div class="relative z-10 flex min-h-[220px] flex-col justify-end gap-4 p-5 sm:p-7 md:max-w-2xl">
+                        <div class="inline-flex w-fit items-center gap-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-300 font-mono">
+                            <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                            Baked environment active
+                        </div>
+                        <div>
+                            <h1 class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Watsons Attention Feed</h1>
+                            <p class="mt-2 max-w-xl text-sm leading-6 text-slate-300">Lighthouse priorities scored, ranked, and clustered by Watsons' Insight Engine.</p>
+                        </div>
                     </div>
-                </div>
+                </section>
 
                 <!-- Insights List -->
                 <div class="space-y-6">
@@ -752,7 +760,7 @@
             <div class="px-6 py-4 border-b border-[#232d43] flex items-center justify-between">
                 <div class="flex items-center space-x-2.5">
                     <i data-lucide="terminal" class="w-5 h-5 text-indigo-400"></i>
-                    <h3 class="text-lg font-bold text-white">Watson Live Sandbox Execution Terminal</h3>
+                    <h3 class="text-lg font-bold text-white">Watsons Live Sandbox Execution Terminal</h3>
                 </div>
                 <button @click="closeLogModal()" class="text-gray-400 hover:text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
@@ -783,7 +791,7 @@
 
     <!-- API and Page script -->
     <script>
-        function watsonApp() {
+        function watsonsApp() {
             return {
                 activeTab: 'feed',
                 catalog: [],
