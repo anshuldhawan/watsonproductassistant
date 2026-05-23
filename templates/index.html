@@ -598,6 +598,13 @@
                             <div class="p-4 bg-[#141b2d] border border-[#1f293d] rounded-xl space-y-4">
                                 <div class="flex justify-between items-start">
                                     <span class="text-xs font-bold text-gray-200 uppercase font-mono tracking-tight truncate w-full" x-text="skill.skill_key.replaceAll('-', ' ')"></span>
+                                    <select x-model="skill.skill_status" @change="saveManualThreshold(skill)" class="ml-2 bg-[#0b0f19] border border-[#334155] text-[10px] text-gray-300 rounded px-1 py-0.5">
+                                        <option value="active">active</option>
+                                        <option value="paused">paused</option>
+                                    </select>
+                                </div>
+                                <div x-show="skill.unreviewed_disagreement_count > 0" class="text-[10px] font-mono text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2">
+                                    <span x-text="skill.unreviewed_disagreement_count"></span> unresolved methodology disagreement(s)
                                 </div>
 
                                 <div class="space-y-3">
@@ -626,6 +633,23 @@
             </div>
 
         </main>
+    </div>
+
+    <!-- Reinforcement Learning Toast -->
+    <div x-show="learningToast" x-transition class="fixed bottom-5 right-5 z-50 bg-[#0f1524] border border-emerald-500/30 shadow-2xl rounded-2xl p-4 w-80">
+        <div class="flex items-start space-x-3">
+            <div class="mt-1">
+                <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
+                </span>
+            </div>
+            <div class="space-y-1">
+                <h4 class="text-sm font-bold text-white">Learning loop updated</h4>
+                <p class="text-xs text-gray-400" x-text="learningToast?.message || 'Feedback was converted into a ranking signal.'"></p>
+                <div class="text-[10px] font-mono text-emerald-300" x-text="learningToast ? formatRewardLabel(learningToast) : ''"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Research Job Modal -->
@@ -820,6 +844,36 @@
                     this.kpis = await res.json();
                 },
 
+                async fetchAdminData() {
+                    await Promise.all([
+                        this.fetchAdminStatus(),
+                        this.fetchReviews(),
+                        this.fetchThresholds(),
+                        this.fetchSkillPriors()
+                    ]);
+                    setTimeout(() => lucide.createIcons(), 50);
+                },
+
+                async fetchAdminStatus() {
+                    const res = await fetch("/api/admin/status");
+                    this.adminStatus = await res.json();
+                },
+
+                async fetchReviews() {
+                    const res = await fetch("/api/admin/reviews");
+                    this.reviews = await res.json();
+                },
+
+                async fetchThresholds() {
+                    const res = await fetch("/api/admin/thresholds");
+                    this.thresholds = await res.json();
+                },
+
+                async fetchSkillPriors() {
+                    const res = await fetch("/api/admin/skill-priors");
+                    this.skillPriors = await res.json();
+                },
+
                 async fetchResearchPlaybooks() {
                     const res = await fetch("/api/research/playbooks");
                     this.researchPlaybooks = await res.json();
@@ -918,17 +972,73 @@
                 },
 
                 async submitFeedback(insightId, status) {
-                    await fetch(`/api/insights/${insightId}/feedback`, {
+                    const res = await fetch(`/api/insights/${insightId}/feedback`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ feedback_status: status })
+                        body: JSON.stringify({ feedback_status: status, signal_type: status })
                     });
+                    const payload = await res.json();
+                    this.showLearningSignal(insightId, payload.learning_update || {});
                     await this.fetchInsights();
+                    await this.fetchAdminStatus();
+                    await this.fetchSkillPriors();
+                    if (status === "wrong_disagree") {
+                        await this.fetchReviews();
+                        await this.fetchThresholds();
+                    }
+                    return payload;
                 },
 
                 async handleFeedbackChange(insightId, status) {
                     if (!status) return;
+                    this.showLearningSignal(insightId, {
+                        signal_type: status,
+                        ranking_reward: null,
+                        posterior_updated: false,
+                        routed_to_review: status === "wrong_disagree",
+                        message: "Feedback received. Converting to reward signal..."
+                    });
                     await this.submitFeedback(insightId, status);
+                },
+
+                showLearningSignal(insightId, update) {
+                    const learningUpdate = {
+                        insight_id: insightId,
+                        signal_type: update.signal_type || "unknown",
+                        ranking_reward: update.ranking_reward,
+                        routed_to_review: !!update.routed_to_review,
+                        posterior_updated: !!update.posterior_updated,
+                        posterior_update: update.posterior_update || null,
+                        message: update.message || "Feedback was applied to the learning loop."
+                    };
+                    this.learningSignals = { ...this.learningSignals, [insightId]: learningUpdate };
+                    this.learningToast = learningUpdate;
+                    setTimeout(() => {
+                        if (this.learningToast && this.learningToast.insight_id === insightId) {
+                            this.learningToast = null;
+                        }
+                    }, 4500);
+                },
+
+                formatSignalLabel(signal) {
+                    if (!signal) return "Unknown";
+                    return signal.replaceAll("_", " ").replaceAll("-", " ");
+                },
+
+                formatRewardLabel(update) {
+                    if (!update) return "";
+                    if (update.routed_to_review) return "Reward withheld";
+                    if (update.ranking_reward === null || update.ranking_reward === undefined) return "Reward pending";
+                    const reward = Number(update.ranking_reward);
+                    return `Reward ${reward >= 0 ? "+" : ""}${reward.toFixed(2)}`;
+                },
+
+                formatPosteriorDelta(update) {
+                    const delta = update?.posterior_update?.delta_norm;
+                    if (delta === null || delta === undefined) {
+                        return update?.routed_to_review ? "Not updated" : "Queued";
+                    }
+                    return Number(delta).toFixed(4);
                 },
 
                 async requestResearchPlan(playbookId) {
@@ -1027,6 +1137,52 @@
                     await this.fetchResearchJobs();
                     this.activeTab = 'research';
                     this.openResearchJob(job);
+                },
+
+                async triggerPolicyRefit() {
+                    const res = await fetch("/api/admin/refit", { method: "POST" });
+                    const result = await res.json();
+                    this.learningToast = {
+                        signal_type: "batch_refit",
+                        ranking_reward: null,
+                        routed_to_review: false,
+                        posterior_updated: result.policy_status === "active",
+                        message: `Batch refit produced ${result.version} (${result.policy_status}).`
+                    };
+                    await this.fetchAdminData();
+                    await this.fetchInsights();
+                    setTimeout(() => { this.learningToast = null; }, 4500);
+                },
+
+                async autoAdjustThresholds() {
+                    await fetch("/api/admin/thresholds/auto-adjust", { method: "POST" });
+                    await this.fetchThresholds();
+                    await this.fetchAdminStatus();
+                },
+
+                async saveManualThreshold(skill) {
+                    await fetch("/api/admin/thresholds/update", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            skill_key: skill.skill_key,
+                            current_magnitude_threshold: parseFloat(skill.current_magnitude_threshold),
+                            current_confidence_threshold: parseFloat(skill.current_confidence_threshold),
+                            skill_status: skill.skill_status || "active"
+                        })
+                    });
+                    await this.fetchThresholds();
+                },
+
+                async resolveReview(reviewId, action) {
+                    await fetch(`/api/admin/reviews/${reviewId}/resolve`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action })
+                    });
+                    await this.fetchReviews();
+                    await this.fetchThresholds();
+                    await this.fetchAdminStatus();
                 },
 
                 openRunLogs(run) {
