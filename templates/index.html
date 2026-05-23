@@ -1261,7 +1261,7 @@
                 },
 
                 formatKPIValue(val, metric) {
-                    if (!val) return "—";
+                    if (!val) return "-";
                     if (metric === "dau") return val.toLocaleString();
                     if (metric === "new_user_activation" || metric === "d1_retention" || metric === "d7_retention" || metric === "skip_rate") {
                         return (val * 100).toFixed(1) + "%";

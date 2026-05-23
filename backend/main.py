@@ -502,6 +502,16 @@ def trigger_policy_refit(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/admin/policies")
+def list_policy_versions(db: Session = Depends(get_db)):
+    return db.query(PolicyVersion).order_by(PolicyVersion.created_at.desc()).all()
+
+
+@app.post("/api/admin/audits/valence")
+def trigger_valence_parity_audit(db: Session = Depends(get_db)):
+    return {"valence_parity_score": run_valence_parity_audit(db)}
+
+
 @app.get("/api/admin/thresholds")
 def list_skill_thresholds(db: Session = Depends(get_db)):
     # Ensure threshold records exist for seeded analysis keys
